@@ -17,8 +17,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import (
-    SIZE_ORDER, SLOTS, Color, Kind, Look, MirrorDevice, MirrorSession, Order, OrderItem,
-    Product, ProductSize, Size, Style, TryOn,
+    SIZE_ORDER, SLOTS, AISettings, Color, JobStatus, Kind, Look, MirrorDevice, MirrorSession, Order,
+    OrderItem, PhotorealJob, Product, ProductSize, Size, Style, TryOn,
 )
 
 MAX_CART_ITEMS = 10
@@ -106,6 +106,7 @@ def catalog(request):
             "slug": device.slug, "name": device.name, "city": device.city, "idleSeconds": device.idle_seconds,
         } if device else None,
         "version": _catalog_version(),
+        "ai": {"enabled": AISettings.load().enabled},
     })
 
 
@@ -186,7 +187,16 @@ def look_create(request):
         raise ApiError("Obrazda kiyim yo'q")
     look = Look.objects.create(session=session)
     look.products.set(products)
-    if data.get("snapshot"):
+    job = PhotorealJob.objects.filter(pk=data.get("photoreal"), status=JobStatus.DONE).first() \
+        if _is_uuid(data.get("photoreal")) else None
+    if job and job.result_image:
+        # Fotorealistik AI natijasi bo'lsa — obraz surati sifatida o'shani saqlaymiz.
+        job.result_image.open("rb")
+        try:
+            look.snapshot.save(f"{look.token}.jpg", ContentFile(job.result_image.read()), save=True)
+        finally:
+            job.result_image.close()
+    elif data.get("snapshot"):
         ext, raw = _decode_snapshot(data["snapshot"])
         look.snapshot.save(f"{look.token}.{ext}", ContentFile(raw), save=True)
     if session:
@@ -234,3 +244,68 @@ def order_create(request):
     if session:
         _touch(session)
     return JsonResponse({"number": order.number, "total": order.total, "id": order.id}, status=201)
+
+
+def _is_uuid(value):
+    import uuid
+    try:
+        uuid.UUID(str(value))
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+# ---------------- Fotorealistik AI ----------------
+
+def _job_json(job):
+    return {
+        "id": str(job.pk),
+        "status": job.status,
+        "error": job.error,
+        "seconds": job.seconds,
+        "result": job.result_image.url if job.result_image else None,
+    }
+
+
+@require_POST
+@api_view
+def photoreal_create(request):
+    from . import vton
+
+    cfg = AISettings.load()
+    if not cfg.enabled:
+        raise ApiError("AI xizmati sozlanmagan. Admin panel → AI sozlamalari.", 503)
+    data = _body(request)
+    session = _session(data.get("session")) if data.get("session") else None
+    if session and session.photoreal_jobs.filter(status__in=[JobStatus.QUEUED, JobStatus.RUNNING]).exists():
+        raise ApiError("Oldingi AI surat hali tayyorlanmoqda", 409)
+    ids = [int(i) for i in data.get("products", []) if str(i).isdigit()][:4]
+    products = list(Product.objects.filter(pk__in=ids, is_active=True))
+    if not products:
+        raise ApiError("Kiyim tanlanmagan")
+    ext, person = _decode_snapshot(data.get("person"))
+
+    job = PhotorealJob(session=session, provider=cfg.provider, product_ids=[p.pk for p in products])
+    job.person_image.save(f"{job.pk}.{ext}", ContentFile(person), save=False)
+    garments = data.get("garments") or {}
+    if not isinstance(garments, dict):
+        raise ApiError("garments obyekt bo'lishi kerak")
+    for p in products:
+        uri = garments.get(str(p.pk))
+        if uri and not p.photo:
+            g_ext, raw = _decode_snapshot(uri)
+            from django.core.files.storage import default_storage
+            job.garment_files[str(p.pk)] = default_storage.save(f"photoreal/garment/{job.pk}-{p.pk}.{g_ext}", ContentFile(raw))
+    job.save()
+    if session:
+        _touch(session)
+    vton.start_job(job)
+    job.refresh_from_db()
+    return JsonResponse(_job_json(job), status=202)
+
+
+@require_GET
+@api_view
+def photoreal_status(request, job_id):
+    job = get_object_or_404(PhotorealJob, pk=job_id)
+    return JsonResponse(_job_json(job))

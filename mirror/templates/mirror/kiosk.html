@@ -24,27 +24,36 @@
       <button class="icon-btn" id="btn-settings" aria-label="Boshqa" title="Boshqa">⚙</button>
     </header>
 
-    <main class="stage-wrap">
-      <section class="stage" id="stage">
-        <video id="video" playsinline muted></video>
-        <canvas id="canvas"></canvas>
-
-        <div class="stage-info">
-          <div class="status" id="status"><span class="dot"></span><span id="status-text">Manekin rejimi</span></div>
-          <div class="session" id="session" hidden></div>
+    <main class="layout">
+      <!-- Ko'zgu: alohida panel, ustida hech qanday yozuv yo'q -->
+      <section class="mirror-panel" id="mirror-panel">
+        <div class="stage" id="stage">
+          <video id="video" playsinline muted></video>
+          <canvas id="canvas"></canvas>
+          <img id="ai-result" alt="AI natija" hidden>
+          <div class="ai-progress" id="ai-progress" hidden><i></i></div>
         </div>
-        <div class="guide-msg" id="guide" hidden></div>
-
-        <div class="stage-actions">
-          <button class="round-btn" id="btn-camera" title="Kamera">📷</button>
-          <button class="round-btn" id="btn-save-look" title="Obrazni saqlash va telefonga olish">♡</button>
-          <button class="round-btn" id="btn-clear" title="Tozalash">✕</button>
+        <div class="mirror-bar">
+          <div class="bar-info">
+            <div class="status" id="status"><span class="dot"></span><span id="status-text">Manekin rejimi</span></div>
+            <div class="guide-msg" id="guide" hidden></div>
+            <div class="session" id="session" hidden></div>
+          </div>
+          <div class="bar-actions">
+            <button class="tool" id="btn-camera" title="Kamera"><b>📷</b><span>Kamera</span></button>
+            <button class="tool accent" id="btn-ai" title="Fotorealistik AI surat"><b>✨</b><span>AI foto</span></button>
+            <button class="tool" id="btn-save-look" title="Obrazni saqlash va telefonga olish"><b>♡</b><span>Saqlash</span></button>
+            <button class="tool" id="btn-clear" title="Tozalash"><b>✕</b><span>Tozalash</span></button>
+            <button class="tool" id="btn-expand" title="Katta ko'zgu"><b>⤢</b><span>Katta</span></button>
+          </div>
         </div>
-
-        <div class="look" id="look"></div>
       </section>
 
-      <aside class="rail" id="rail" aria-label="Kiyimlar"><div class="empty">Yuklanmoqda…</div></aside>
+      <!-- Tanlangan kiyim ma'lumotlari va katalog: ko'zgudan alohida -->
+      <aside class="side">
+        <section class="info" id="look"></section>
+        <section class="rail" id="rail" aria-label="Kiyimlar"><div class="empty">Yuklanmoqda…</div></section>
+      </aside>
     </main>
 
     <nav class="filters" id="filters">

@@ -189,3 +189,136 @@ class PageTests(BaseCase):
         self.assertEqual(r.status_code, 302, r.content.decode()[:2000])
         p = Product.objects.get(name="Yangi bluzka")
         self.assertEqual({s.size: s.stock for s in p.sizes.all()}, {"M": 3})
+
+
+# ---------------- Fotorealistik AI ----------------
+from unittest import mock
+
+from . import vton
+from .models import AISettings, PhotorealJob
+
+
+def _img_bytes(fmt="JPEG", color=(120, 80, 90)):
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 96), color).save(buf, fmt)
+    return buf.getvalue()
+
+
+def _uri(raw, mime="image/jpeg"):
+    return f"data:{mime};base64," + base64.b64encode(raw).decode()
+
+
+@override_settings(VTON_SYNC=True)
+@mock.patch.object(vton, "POLL_SECONDS", 0)
+class PhotorealTests(BaseCase):
+    def setUp(self):
+        super().setUp()
+        self.top = Product.objects.create(name="Bluzka", kind="bluzka", style="klassik", color=self.color, price=1)
+        self.pants = Product.objects.create(name="Shim", kind="shim", style="klassik", color=self.color, price=1)
+        self.pants.photo = SimpleUploadedFile("s.png", jpeg_on_white(), content_type="image/png")
+        self.pants.save()
+
+    def configure(self, **kw):
+        cfg = AISettings.load()
+        for k, v in kw.items():
+            setattr(cfg, k, v)
+        cfg.save()
+
+    def start(self, products, garments=None):
+        return self.post("mirror:api_photoreal_create", {
+            "person": _uri(_img_bytes()), "products": [p.id for p in products],
+            "garments": garments or {},
+        })
+
+    def test_disabled_returns_503(self):
+        self.assertFalse(self.client.get(reverse("mirror:api_catalog")).json()["ai"]["enabled"])
+        self.assertEqual(self.start([self.top]).status_code, 503)
+
+    def test_http_provider_chains_garments_in_order(self):
+        self.configure(provider="http", endpoint="https://gpu.local/tryon", api_key="k")
+        calls = []
+
+        def fake_http(method, url, headers=None, body=None, timeout=60):
+            calls.append((url, body["category"], headers))
+            return json.dumps({"image": _uri(_img_bytes("PNG"), "image/png")}).encode()
+
+        with mock.patch.object(vton, "_http", side_effect=fake_http):
+            r = self.start([self.pants, self.top], garments={str(self.top.id): _uri(_img_bytes())})
+        self.assertEqual(r.status_code, 202, r.content)
+        data = r.json()
+        self.assertEqual(data["status"], "done", data)
+        self.assertTrue(data["result"].endswith(".jpg"))
+        self.assertEqual([c[1] for c in calls], ["ichki", "past"])  # avval yuqori, keyin past
+        self.assertEqual(calls[0][2]["Authorization"], "Bearer k")
+        status = self.client.get(reverse("mirror:api_photoreal_status", args=[data["id"]])).json()
+        self.assertEqual(status["status"], "done")
+
+        # Obraz AI natijasi bilan saqlanadi.
+        look = self.post("mirror:api_look_create", {"products": [self.top.id], "photoreal": data["id"]}).json()
+        self.assertTrue(Look.objects.get(token=look["token"]).snapshot.name.endswith(".jpg"))
+
+    def test_fashn_provider_polls_until_completed(self):
+        self.configure(provider="fashn", api_key="fa-key")
+        seq = iter([{"status": "processing"}, {"status": "completed", "output": ["https://cdn.fashn.ai/out.png"]}])
+        bodies = []
+
+        def fake_http(method, url, headers=None, body=None, timeout=60):
+            if url.endswith("/run"):
+                bodies.append(body)
+                return b'{"id": "job1", "error": null}'
+            if "/status/job1" in url:
+                return json.dumps(next(seq)).encode()
+            if url == "https://cdn.fashn.ai/out.png":
+                return _img_bytes("PNG")
+            raise AssertionError(url)
+
+        with mock.patch.object(vton, "_http", side_effect=fake_http):
+            data = self.start([self.pants]).json()
+        self.assertEqual(data["status"], "done", data)
+        self.assertEqual(bodies[0]["model_name"], "tryon-v1.6")
+        self.assertEqual(bodies[0]["inputs"]["category"], "bottoms")
+        self.assertTrue(bodies[0]["inputs"]["garment_image"].startswith("data:image/"))
+
+    def test_replicate_provider(self):
+        self.configure(provider="replicate", api_key="r8")
+        seen = []
+
+        def fake_http(method, url, headers=None, body=None, timeout=60):
+            seen.append((method, url))
+            if url.endswith("/models/cuuupid/idm-vton"):
+                return b'{"latest_version": {"id": "v123"}}'
+            if url.endswith("/predictions"):
+                self.assertEqual(body["version"], "v123")
+                self.assertEqual(body["input"]["category"], "lower_body")
+                return b'{"status": "starting", "urls": {"get": "https://api.replicate.com/v1/predictions/p1"}}'
+            if url.endswith("/predictions/p1"):
+                return b'{"status": "succeeded", "output": "https://replicate.delivery/x.jpg"}'
+            if url == "https://replicate.delivery/x.jpg":
+                return _img_bytes()
+            raise AssertionError(url)
+
+        with mock.patch.object(vton, "_http", side_effect=fake_http):
+            data = self.start([self.pants]).json()
+        self.assertEqual(data["status"], "done", data)
+
+    def test_provider_error_is_reported(self):
+        self.configure(provider="fashn", api_key="bad")
+        with mock.patch.object(vton, "_http", side_effect=vton.VtonError("AI xizmati kalitni qabul qilmadi")):
+            data = self.start([self.pants]).json()
+        self.assertEqual(data["status"], "failed")
+        self.assertIn("kalit", data["error"])
+
+    def test_product_without_image_fails_clearly(self):
+        self.configure(provider="http", endpoint="https://gpu.local/tryon")
+        with mock.patch.object(vton, "_http") as http:
+            data = self.start([self.top]).json()  # garments berilmagan
+        self.assertEqual(data["status"], "failed")
+        self.assertIn("rasm yuklanmagan", data["error"])
+        http.assert_not_called()
+
+    def test_one_running_job_per_session(self):
+        self.configure(provider="http", endpoint="https://gpu.local/tryon")
+        sid = self.post("mirror:api_session_start", {}).json()["session"]
+        PhotorealJob.objects.create(session_id=sid, provider="http", status="running", person_image="x.jpg")
+        r = self.post("mirror:api_photoreal_create", {"session": sid, "person": _uri(_img_bytes()), "products": [self.pants.id]})
+        self.assertEqual(r.status_code, 409)

@@ -2,8 +2,11 @@ from django.contrib import admin, messages
 from django.templatetags.static import static
 from django.utils.html import format_html, format_html_join
 
+from django import forms
+from django.shortcuts import redirect
+
 from .models import (
-    SIZE_ORDER, Color, Look, MirrorDevice, MirrorSession, Order, OrderItem, OrderStatus,
+    SIZE_ORDER, AISettings, PhotorealJob, Color, Look, MirrorDevice, MirrorSession, Order, OrderItem, OrderStatus,
     Product, ProductSize, TryOn,
 )
 
@@ -235,6 +238,57 @@ class LookAdmin(admin.ModelAdmin):
     @admin.display(description="Havola")
     def open_link(self, obj):
         return format_html('<a href="{}" target="_blank">Ochish ↗</a>', obj.get_absolute_url())
+
+
+class AISettingsForm(forms.ModelForm):
+    class Meta:
+        model = AISettings
+        fields = "__all__"
+        widgets = {"api_key": forms.PasswordInput(render_value=True, attrs={"autocomplete": "off", "size": 60})}
+
+
+@admin.register(AISettings)
+class AISettingsAdmin(admin.ModelAdmin):
+    form = AISettingsForm
+    fieldsets = ((None, {
+        "fields": ("provider", "api_key", "model", "endpoint", "timeout"),
+        "description": "Fotorealistik kiyib ko'rish: ko'zgudagi \"✨ AI foto\" tugmasi xaridor suratini va tanlangan "
+                       "kiyimlarni shu xizmatga yuboradi. FASHN yoki Replicate'dan API kalit oling, yoki o'z GPU "
+                       "serveringiz manzilini kiriting (README'da kontrakt yozilgan). Kalit serverda saqlanadi va "
+                       "ko'zguga yuborilmaydi.",
+    }),)
+
+    def has_add_permission(self, request):
+        return not AISettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        obj = AISettings.load()
+        return redirect("admin:mirror_aisettings_change", obj.pk)
+
+
+@admin.register(PhotorealJob)
+class PhotorealJobAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "provider", "status", "seconds_fmt", "thumbs", "error")
+    list_filter = ("status", "provider")
+    readonly_fields = ("session", "provider", "status", "product_ids", "person_image", "result_image",
+                       "error", "created_at", "finished_at")
+    exclude = ("garment_files",)
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.display(description="Vaqt")
+    def seconds_fmt(self, obj):
+        return f"{obj.seconds} s"
+
+    @admin.display(description="Surat → natija")
+    def thumbs(self, obj):
+        img = '<img src="{}" style="height:70px;border-radius:6px;margin-right:4px">'
+        parts = [obj.person_image, obj.result_image]
+        return format_html_join("", img, ((p.url,) for p in parts if p)) or "—"
 
 
 # Admin bosh sahifasiga tezkor havolalar (konsultant paneli, statistika, ko'zgu).

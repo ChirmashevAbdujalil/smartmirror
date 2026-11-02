@@ -38,56 +38,87 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .brand-sub { font-size: 12px; color: var(--muted); font-style: italic; }
 .icon-btn { background: var(--panel); border: 1px solid var(--line); border-radius: 50%; width: 44px; height: 44px; font-size: 20px; }
 
-/* ---------- Sahna ---------- */
-.stage-wrap { display: grid; grid-template-columns: 1fr clamp(116px, 22vw, 170px); gap: 10px; min-height: 0; }
+/* ---------- Asosiy joylashuv ----------
+   Vertikal ekran: tepada katta ko'zgu, pastda ma'lumot paneli + katalog.
+   Gorizontal ekran: chapda katta ko'zgu, o'ngda ma'lumot va katalog. */
+.layout {
+  display: grid; gap: 10px; min-height: 0;
+  grid-template-rows: minmax(0, 1fr) clamp(190px, 24vh, 320px);
+}
+.mirror-panel {
+  display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0;
+  border-radius: 30px; padding: 8px; background: linear-gradient(160deg, #3a2633, #17121a 40%, #2a1a25);
+  box-shadow: 0 0 0 2px rgba(240, 98, 146, .45), 0 0 50px rgba(240, 98, 146, .2);
+}
 .stage {
-  position: relative; border-radius: 28px; overflow: hidden; min-height: 0;
+  position: relative; border-radius: 24px; overflow: hidden; min-height: 0;
   background: radial-gradient(ellipse at 50% 30%, #2a2230 0%, #120f15 70%);
-  box-shadow: 0 0 0 2px rgba(240, 98, 146, 0.35), 0 0 40px rgba(240, 98, 146, 0.18) inset;
 }
 .stage video { display: none; }
-.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage canvas, .stage #ai-result { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stage #ai-result { object-fit: cover; background: #000; animation: fade .4s ease-out; }
+@keyframes fade { from { opacity: 0; } }
 .stage.flash::after { content: ""; position: absolute; inset: 0; background: #fff; opacity: .6; animation: flash .3s ease-out forwards; }
 @keyframes flash { to { opacity: 0; } }
+/* AI ishlayotganini ko'rsatuvchi ingichka chiziq — yozuvsiz */
+.ai-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.1); }
+.ai-progress i { display: block; height: 100%; width: 30%; background: var(--pink); animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
 
-.stage-info { position: absolute; top: 12px; left: 12px; right: 72px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.status {
-  display: flex; gap: 8px; align-items: center;
-  background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(8px);
-  padding: 6px 12px; border-radius: 999px; font-size: 13px; max-width: 100%;
-}
+/* Ko'zgu ostidagi panel: holat va tugmalar */
+.mirror-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 4px 2px; flex-wrap: wrap; }
+.bar-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 200px; flex-wrap: wrap; }
+.status { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); min-width: 0; }
 .status .dot { width: 8px; height: 8px; border-radius: 50%; background: #999; flex: none; }
 .status[data-mode="kamera"] .dot { background: #4cd38a; box-shadow: 0 0 8px #4cd38a; }
-.status[data-mode="yuklanmoqda"] .dot { background: #f5c04a; }
-
-.stage-actions { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 10px; }
-.round-btn {
-  width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line);
-  background: var(--panel); backdrop-filter: blur(8px); font-size: 20px;
+.status[data-mode="yuklanmoqda"] .dot, .status[data-mode="ai"] .dot { background: #f5c04a; }
+.guide-msg { background: var(--pink); color: #fff; font-weight: 800; font-size: 14px; padding: 4px 12px; border-radius: 999px; }
+.session { font-size: 13px; color: var(--muted); background: rgba(255,255,255,.06); padding: 3px 10px; border-radius: 999px; }
+.session b { color: var(--text); }
+.bar-actions { display: flex; gap: 6px; }
+.tool {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 58px;
+  background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 14px; padding: 6px 8px; font-size: 11px; color: var(--muted);
 }
-.round-btn.on { border-color: var(--pink); box-shadow: 0 0 12px rgba(240, 98, 146, .5); }
+.tool b { font-size: 19px; font-weight: 400; color: var(--text); }
+.tool.on { border-color: var(--pink); color: var(--pink-soft); }
+.tool.accent { background: linear-gradient(135deg, rgba(240, 98, 146, .35), rgba(160, 90, 240, .3)); border-color: rgba(240, 98, 146, .6); color: var(--text); }
+.tool.busy b { animation: spin 1.2s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.look { position: absolute; left: 12px; right: 72px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
-.focus { background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(10px); border-radius: var(--radius); padding: 12px 14px; }
+/* Katta ko'zgu rejimi: faqat ko'zgu qoladi */
+body.big .side, body.big .filters, body.big .tabbar, body.big .topbar .brand-sub { display: none; }
+body.big .layout { grid-template-rows: minmax(0, 1fr); grid-template-columns: 1fr; }
+body.big .mirror { grid-template-rows: auto 1fr; }
+
+/* ---------- Ma'lumot paneli va katalog ---------- */
+.side { display: grid; grid-template-columns: minmax(230px, 40%) minmax(0, 1fr); gap: 10px; min-height: 0; }
+.info {
+  background: var(--panel-solid); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 14px; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 10px;
+}
+.info-empty { color: var(--muted); font-size: 14px; margin: auto 0; text-align: center; line-height: 1.5; }
+.info-empty b { color: var(--text); display: block; font-size: 16px; margin-bottom: 4px; }
 .focus-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
 .focus-name { font-weight: 700; font-size: 17px; }
 .focus-meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .focus-price { color: var(--pink-soft); font-weight: 700; white-space: nowrap; }
-.focus-sizes { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.focus-sizes { display: flex; gap: 6px; flex-wrap: wrap; }
 .sz { min-width: 38px; text-align: center; padding: 5px 8px; border-radius: 10px; border: 1px solid var(--line); font-size: 13px; font-weight: 600; }
 .sz.na { opacity: .35; text-decoration: line-through; }
 .sz.sel { border-color: var(--pink); color: var(--pink-soft); }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip { background: rgba(240, 98, 146, .18); border: 1px solid rgba(240, 98, 146, .45); border-radius: 999px; padding: 6px 12px; font-size: 13px; }
-.chip.total { background: var(--panel); border-color: var(--line); }
+.chip.total { background: rgba(255,255,255,.06); border-color: var(--line); }
 
-.session { font-size: 13px; color: var(--muted); background: var(--panel); padding: 4px 10px; border-radius: 999px; }
-.session b { color: var(--text); }
-
-/* ---------- O'ng ustun (kiyimlar) ---------- */
-.rail { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 2px; scrollbar-width: none; }
+.rail {
+  display: flex; flex-direction: row; gap: 10px; overflow-x: auto; overflow-y: hidden; min-height: 0;
+  scrollbar-width: none; align-items: stretch;
+}
 .rail::-webkit-scrollbar { display: none; }
-.rail-reset { background: var(--pink); border: 0; border-radius: 12px; padding: 8px; font-size: 13px; font-weight: 700; }
+.rail .card { width: clamp(118px, 15vw, 170px); display: flex; flex-direction: column; }
+.rail .card img { flex: 1; min-height: 0; aspect-ratio: auto; }
+.rail-reset { background: var(--pink); border: 0; border-radius: 12px; padding: 8px; font-size: 13px; font-weight: 700; flex: none; writing-mode: vertical-rl; }
 
 .card {
   position: relative; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 16px;
@@ -163,7 +194,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- Bildirishnoma va kutish ---------- */
 .toast {
-  position: fixed; left: 50%; top: 20px; transform: translateX(-50%); z-index: 20;
+  position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 20;
   background: var(--pink); color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 14px;
 }
 .idle {
@@ -178,9 +209,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes pulse { 50% { opacity: .6; } }
 
 /* Gorizontal (landshaft) ekran uchun */
-@media (min-aspect-ratio: 4/3) {
-  .stage-wrap { grid-template-columns: 1fr 240px; }
-  .rail { display: grid; grid-template-columns: 1fr 1fr; align-content: start; }
+@media (min-aspect-ratio: 1/1) {
+  .layout { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) clamp(300px, 30vw, 440px); }
+  .side { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .info { max-height: 46vh; }
+  .rail { display: grid; grid-template-columns: 1fr 1fr; overflow-x: hidden; overflow-y: auto; align-content: start; }
+  .rail .card { width: auto; }
+  .rail .card img { aspect-ratio: 3 / 4; }
+  .rail-reset { grid-column: 1 / -1; writing-mode: initial; }
 }
 @media (max-width: 480px) {
   .brand-sub { display: none; }
@@ -195,15 +231,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--pink); color: #fff; font-size: 11px; font-style: normal; font-weight: 800;
   display: grid; place-items: center; padding: 0 5px;
 }
-.guide-msg {
-  position: absolute; left: 50%; top: 40%; transform: translateX(-50%); z-index: 2;
-  background: rgba(240, 98, 146, .9); color: #fff; font-weight: 800; font-size: 20px;
-  padding: 12px 22px; border-radius: 999px; white-space: nowrap; pointer-events: none;
-}
+
 .badge-new { position: absolute; top: 12px; left: 12px; background: var(--pink); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; }
-.focus-desc { color: var(--muted); font-size: 13px; margin-top: 6px; }
-.focus-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
-.focus-row .focus-sizes { margin-top: 0; }
+.focus-desc { color: var(--muted); font-size: 13px; }
+.focus-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 button.sz { background: none; color: var(--text); cursor: pointer; }
 button.sz.sel { background: rgba(240, 98, 146, .25); }
 .buy {
@@ -228,3 +259,26 @@ button.sz.sel { background: rgba(240, 98, 146, .25); }
 .done p { color: var(--muted); }
 .qr { width: min(280px, 70vw); margin: 14px auto; background: #fff; border-radius: 18px; padding: 10px; }
 .qr svg { width: 100%; height: auto; display: block; }
+
+/* Ko'zguga ko'proq joy: filtr va tab tugmalari ixcham */
+.filters button { flex-direction: row; justify-content: center; gap: 6px; padding: 9px 6px; }
+.filters button span { font-size: 16px; }
+.tabbar button { flex-direction: row; justify-content: center; gap: 6px; padding: 9px 6px; }
+.tabbar button .ti { font-size: 18px; }
+.layout { grid-template-rows: minmax(0, 1fr) clamp(170px, 21vh, 300px); }
+@media (max-width: 480px) {
+  .filters button, .tabbar button { flex-direction: column; gap: 0; padding: 6px 4px; }
+  .tool { min-width: 0; flex: 1; }
+  .bar-actions { width: 100%; }
+}
+@media (min-aspect-ratio: 1/1) {
+  .layout { grid-template-rows: minmax(0, 1fr); }
+}
+.focus-buy { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: none; }
+@media (max-width: 600px) {
+  .info { padding: 10px; gap: 8px; }
+  .focus-name { font-size: 15px; }
+  .focus-top { gap: 6px; }
+  .buy { padding: 8px 12px; font-size: 14px; }
+  .sz { min-width: 32px; padding: 4px 6px; font-size: 12px; }
+}

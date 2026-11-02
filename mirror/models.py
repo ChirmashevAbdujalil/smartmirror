@@ -320,3 +320,79 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product} ({self.size})"
+
+
+# ---------------- Fotorealistik AI kiyib ko'rish ----------------
+
+class AIProvider(models.TextChoices):
+    OFF = "off", "O'chirilgan"
+    FASHN = "fashn", "FASHN AI (tijoriy API)"
+    REPLICATE = "replicate", "Replicate (masalan, IDM-VTON)"
+    HTTP = "http", "O'z serverimiz (HTTP)"
+
+
+class AISettings(models.Model):
+    """Yagona yozuv: fotorealistik kiyib ko'rish xizmati sozlamalari."""
+    provider = models.CharField("xizmat", max_length=12, choices=AIProvider.choices, default=AIProvider.OFF)
+    api_key = models.CharField("API kalit / token", max_length=200, blank=True)
+    model = models.CharField(
+        "model", max_length=120, blank=True,
+        help_text="Bo'sh qoldirilsa standart: FASHN — tryon-v1.6, Replicate — cuuupid/idm-vton.",
+    )
+    endpoint = models.URLField("server manzili (HTTP uchun)", blank=True)
+    timeout = models.PositiveIntegerField("kutish vaqti (soniya)", default=180,
+                                          validators=[MinValueValidator(20), MaxValueValidator(900)])
+
+    class Meta:
+        verbose_name = "AI sozlamalari"
+        verbose_name_plural = "AI sozlamalari"
+
+    def __str__(self):
+        return f"AI: {self.get_provider_display()}"
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    @property
+    def enabled(self):
+        if self.provider == AIProvider.OFF:
+            return False
+        if self.provider == AIProvider.HTTP:
+            return bool(self.endpoint)
+        return bool(self.api_key)
+
+
+class JobStatus(models.TextChoices):
+    QUEUED = "queued", "Navbatda"
+    RUNNING = "running", "Bajarilmoqda"
+    DONE = "done", "Tayyor"
+    FAILED = "failed", "Xato"
+
+
+class PhotorealJob(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(MirrorSession, null=True, blank=True, on_delete=models.SET_NULL, related_name="photoreal_jobs")
+    provider = models.CharField("xizmat", max_length=12, choices=AIProvider.choices)
+    status = models.CharField("holati", max_length=10, choices=JobStatus.choices, default=JobStatus.QUEUED)
+    product_ids = models.JSONField("kiyimlar", default=list)
+    garment_files = models.JSONField(default=dict, blank=True)  # product_id -> media yo'li (ko'zgu yuborgan rasm)
+    person_image = models.ImageField("xaridor surati", upload_to="photoreal/person/")
+    result_image = models.ImageField("natija", upload_to="photoreal/result/", blank=True)
+    error = models.CharField("xato", max_length=300, blank=True)
+    created_at = models.DateTimeField("yaratilgan", default=timezone.now)
+    finished_at = models.DateTimeField("tugagan", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "AI surat"
+        verbose_name_plural = "AI suratlar"
+
+    def __str__(self):
+        return f"AI surat {self.created_at:%d.%m %H:%M}"
+
+    @property
+    def seconds(self):
+        end = self.finished_at or timezone.now()
+        return int((end - self.created_at).total_seconds())

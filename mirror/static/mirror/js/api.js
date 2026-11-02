@@ -26,6 +26,8 @@ export const api = {
   endSession: (session) => request("POST", `/api/sessions/${session}/end/`),
   saveLook: (payload) => request("POST", "/api/looks/", payload),
   order: (payload) => request("POST", "/api/orders/", payload),
+  photoreal: (payload) => request("POST", "/api/photoreal/", payload),
+  photorealStatus: (id) => request("GET", `/api/photoreal/${id}/`),
 };
 
 export function formatPrice(sum) {

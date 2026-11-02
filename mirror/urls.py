@@ -21,4 +21,6 @@ urlpatterns = [
     path("api/sessions/<uuid:session_id>/end/", api.session_end, name="api_session_end"),
     path("api/looks/", api.look_create, name="api_look_create"),
     path("api/orders/", api.order_create, name="api_order_create"),
+    path("api/photoreal/", api.photoreal_create, name="api_photoreal_create"),
+    path("api/photoreal/<uuid:job_id>/", api.photoreal_status, name="api_photoreal_status"),
 ]

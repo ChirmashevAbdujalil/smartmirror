@@ -10,13 +10,21 @@ o'z panelida ko'radi va kiyimni kiyinish xonasiga olib keladi.
 ## Imkoniyatlar
 
 **Sensorli ko'zgu** (`/mirror/<qurilma>/`)
-- Kamera + MediaPipe Pose (brauzerda ishlaydi, tasvir serverga yuborilmaydi): kiyim yelka va songa moslashadi.
-  Shim, bluzka va pidjak bir vaqtda qatlam-qatlam kiyiladi.
+- **Ko'zgu — alohida, katta panel.** Uning ustida hech qanday yozuv chiqmaydi. Kiyim ma'lumoti, o'lcham va narx
+  alohida panelda, holat va tugmalar ko'zgu ostidagi qatorda. **⤢ Katta** tugmasi ko'zguni butun ekranga yoyadi.
+- Vertikal ekranda ko'zgu tepada, ma'lumot va katalog pastda. Gorizontal ekranda ko'zgu chapda, ma'lumot o'ngda.
+- **Jonli kiyib ko'rish:** kamera + MediaPipe Pose (brauzerda ishlaydi, tasvir serverga yuborilmaydi).
+  Kiyim yelka va songa moslashadi; shim, bluzka va pidjak qatlam-qatlam kiyiladi.
+- **Jonli realizm:** xonadagi yorug'lik, soya va tana burmalari kiyimga tushadi. Qo'l tana oldida bo'lsa
+  (masalan, qo'llar qovushtirilgan), u kiyim ustida ko'rinadi — buning uchun odam silueti niqobidan foydalaniladi.
+- **✨ AI foto — fotorealistik natija:** xaridorning toza kamera surati va tanlangan kiyimlar generativ AI
+  xizmatiga yuboriladi. 10–60 soniyada haqiqiy fotodek surat ko'zguda chiqadi va QR orqali telefonga olinadi
+  (pastdagi "Fotorealistik AI" bo'limiga qarang).
 - Xaridorga yo'l-yo'riq: "Bir qadam orqaga turing", "Yaqinroq keling".
 - Kamera bo'lmasa — manekin rejimi.
 - Filtrlar: turi/uslub, o'lcham (faqat omborda borlari), ranglar, tavsiyalar (mos juftlik, ob-havo, ommabop, yangi kolleksiya).
 - O'lchamni tanlash → **Savat** → telefon raqami (ekran klaviaturasi) → **buyurtma raqami** (#007).
-- **♡ Obrazni saqlash** → surat + QR kod: xaridor telefonida obraz sahifasini ochadi.
+- **♡ Saqlash** → surat + QR kod: xaridor telefonida obraz sahifasini ochadi.
 - Katalog 30 soniyada avtomatik yangilanadi (admin o'zgartirsa, ko'zgu darhol ko'radi).
 - Harakatsizlikdan keyin sessiya tugaydi, savat va sevimlilar tozalanadi (maxfiylik).
 
@@ -66,6 +74,41 @@ python manage.py test mirror
 Kamera faqat `localhost` yoki `https://` orqali ishlaydi. Ko'zgu boshqa kompyuterda bo'lsa, serverni HTTPS bilan
 ishga tushiring (masalan, nginx + sertifikat). AI modeli birinchi marta internetdan yuklanadi (jsDelivr va Google Storage).
 
+## Fotorealistik AI
+
+Jonli ko'zgu kiyimni tasvir sifatida tanaga joylaydi — bu tez, lekin "rasm ustiga rasm" ko'rinishida.
+Haqiqiy fotodek natija uchun **✨ AI foto** tugmasi generativ virtual kiyib ko'rish (VTON) xizmatidan foydalanadi:
+
+1. Ko'zgu kiyimsiz toza kadrni oladi va tanlangan kiyimlar bilan serverga yuboradi.
+2. Server ishni fon oqimida bajaradi. Bir nechta kiyim bo'lsa, ular ketma-ket kiydiriladi:
+   ko'ylak yoki bluzka → pidjak yoki kurtka → shim yoki yubka.
+3. Natija ko'zguda chiqadi (**◐ Jonli** tugmasi bilan jonli ko'zguga qaytiladi). **♡ Saqlash** bossangiz, QR sahifasida aynan shu AI surat bo'ladi.
+
+Sozlash: **Admin → AI sozlamalari**.
+
+| Xizmat | Nima kerak | Izoh |
+|---|---|---|
+| FASHN AI | API kalit (fashn.ai) | Tijoriy, sifatli; model standart `tryon-v1.6` |
+| Replicate | API token (replicate.com) | Standart model `cuuupid/idm-vton`; `egasi/nomi:versiya` ham bo'ladi |
+| O'z serverimiz (HTTP) | GPU server manzili | Ochiq kodli modelni o'zingiz ishga tushirasiz |
+
+**O'z serverimiz kontrakti:** `POST <manzil>`, sarlavhada ixtiyoriy `Authorization: Bearer <kalit>`:
+
+```json
+{"person": "data:image/jpeg;base64,...", "garment": "data:image/jpeg;base64,...",
+ "category": "ichki | ustki | past | toliq", "description": "Kiyim nomi"}
+```
+
+Javob: `{"image": "data:image/jpeg;base64,..."}` (yoki rasm URL'i), xato bo'lsa `{"error": "..."}`.
+
+Muhim:
+- Eng yaxshi natija uchun xaridor ko'zgu oldida **to'liq, to'g'ri** tursin, yorug'lik yaxshi bo'lsin.
+- Kiyim rasmlari (admin yuklagan) qanchalik sifatli bo'lsa, natija shunchalik real. Rasmi yo'q kiyim uchun avtomatik tasvir yuboriladi — bunda natija sodda bo'ladi.
+- Xaridor surati AI xizmatiga **faqat ✨ AI foto tugmasi bosilganda** yuboriladi. Do'konda bu haqda ogohlantirish qo'yish tavsiya etiladi.
+- Ochiq kodli VTON modellarining ko'pi (IDM-VTON, CatVTON va boshqalar) **faqat notijorat** litsenziyada — tijoriy
+  foydalanishdan oldin litsenziyani tekshiring yoki tijoriy API'dan foydalaning.
+- Tashqi xizmatlar API'si o'zgarishi mumkin: model nomi admin panelda o'zgartiriladi. Kod: `mirror/vton.py`.
+
 ## Production
 
 ```bash
@@ -96,6 +139,7 @@ mirror/admin.py             Admin panel (jonli oldindan ko'rish, ombor, buyurtma
 mirror/api.py               Ko'zgu uchun JSON API
 mirror/views.py             Ko'zgu sahifasi, obraz sahifasi, konsultant paneli, statistika
 mirror/imaging.py           Rasm fonini olib tashlash (Pillow)
+mirror/vton.py              Fotorealistik AI: FASHN / Replicate / o'z serverimiz, fon oqimida bajarish
 mirror/static/mirror/js/    app.js (ko'zgu), tryon.js (kamera + AI), garments.js, api.js, weather.js, admin-fit.js
 mirror/templates/mirror/    Shablonlar
 mirror/management/commands/seed_demo.py   Demo ma'lumotlar
@@ -112,6 +156,8 @@ mirror/management/commands/seed_demo.py   Demo ma'lumotlar
 | POST | `/api/sessions/<id>/end/` | Tashrif tugadi |
 | POST | `/api/looks/` | Obraz + surat saqlash → QR |
 | POST | `/api/orders/` | Buyurtma (ombor zaxiralanadi) |
+| POST | `/api/photoreal/` | AI foto ishini boshlash (surat + kiyimlar) |
+| GET | `/api/photoreal/<id>/` | AI foto holati va natijasi |
 
 ### Kiyib ko'rish qanday ishlaydi
 
@@ -129,7 +175,7 @@ mirror/management/commands/seed_demo.py   Demo ma'lumotlar
 
 ## Keyingi bosqichlar
 
-- **Fotorealistik AI kiyib ko'rish:** surat GPU serverdagi diffuziya asosidagi VTON modeliga yuboriladi.
-  Tijoriy foydalanishdan oldin model litsenziyasini tekshiring.
+- **Ikki ekranli rejim:** katta ko'zgu ekrani va alohida sensorli boshqaruv planshet.
+- **Navbat:** ko'p ko'zguli do'konda AI ishlarini Celery/RQ navbatiga o'tkazish.
 - **Kamera orqali o'lcham tavsiyasi.**
 - **Integratsiyalar:** kassa/1C, Telegram bot (konsultantga xabar), to'lov (Click/Payme).

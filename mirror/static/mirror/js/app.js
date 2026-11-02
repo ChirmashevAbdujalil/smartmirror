@@ -1,6 +1,6 @@
 // Smart Mirror — sensorli ko'zgu (kiosk) interfeysi. Ma'lumotlar Django API'dan keladi.
 import { api, formatPrice } from "./api.js";
-import { thumbnailSrc, loadGarment } from "./garments.js";
+import { thumbnailSrc, loadGarment, garmentSVG } from "./garments.js";
 import { TryOnEngine } from "./tryon.js";
 import { CITIES, fetchWeather } from "./weather.js";
 
@@ -23,6 +23,7 @@ const state = {
   session: null,       // { id, start, tried:Set, favs:Set, pending:Promise }
   tab: "clothes",
   sheet: null,         // ochiq varaq turi
+  ai: { enabled: false, job: null, status: null, result: null, key: null, showing: false },
 };
 
 const byId = (id) => state.products.find((p) => p.id === id);
@@ -33,18 +34,26 @@ const inStock = (p) => Object.values(p.sizes).some((n) => n > 0);
 // ---------------- Kiyib ko'rish dvigateli ----------------
 const engine = new TryOnEngine($("#canvas"), $("#video"), {
   onStatus: ({ mode, text }) => {
-    $("#status").dataset.mode = mode;
-    $("#status-text").textContent = text;
+    liveStatus = { mode, text };
+    if (!state.ai.showing && state.ai.status !== "running") {
+      $("#status").dataset.mode = mode;
+      $("#status-text").textContent = text;
+    }
     $("#btn-camera").classList.toggle("on", mode === "kamera");
   },
   onGuide: (text) => {
     $("#guide").textContent = text;
     $("#guide").hidden = !text;
   },
+
 });
 engine.start();
 
+const lookKey = () => SLOT_ORDER.map((s) => state.look[s] || "").join("-");
+
 async function syncLayers() {
+  // Kiyim o'zgarsa — eski AI natijasidan jonli ko'zguga qaytamiz.
+  if (state.ai.showing && state.ai.key !== lookKey()) showLive();
   const items = SLOT_ORDER.map((s) => byId(state.look[s])).filter(Boolean);
   const layers = await Promise.all(items.map((p) => loadGarment(p).catch(() => null)));
   engine.setLayers(layers.filter(Boolean));
@@ -58,6 +67,7 @@ async function loadCatalog() {
     sizes: data.sizes, version: data.version,
   });
   if (data.device) state.device = data.device;
+  state.ai.enabled = Boolean(data.ai?.enabled);
   // O'chirilgan kiyimlarni obrazdan va savatdan olib tashlaymiz.
   for (const [slot, id] of Object.entries(state.look)) if (!byId(id)) delete state.look[slot];
   state.cart = state.cart.filter((c) => byId(c.product));
@@ -128,6 +138,9 @@ async function goIdle() {
   state.focusSize = null;
   state.cart = [];
   state.filters = { style: null, kind: null, color: null, size: null };
+  state.ai = { ...state.ai, job: null, status: null, result: null, key: null };
+  showLive();
+  document.body.classList.remove("big");
   closeSheet();
   syncLayers();
   render();
@@ -235,27 +248,122 @@ function renderLook() {
       const n = focus.sizes[s];
       return `<button class="sz ${n ? "" : "na"} ${state.focusSize === s ? "sel" : ""}" ${n ? `data-size="${s}"` : "disabled"} title="${n} dona">${s}</button>`;
     }).join("");
-    html += `<div class="focus">
-      <div class="focus-top">
+    html += `<div class="focus-top">
         <div>
           <div class="focus-name">${esc(focus.name)}</div>
           <div class="focus-meta">${esc(focus.kindLabel)} · ${esc(focus.styleLabel)} · ${esc(focus.color.name)}</div>
         </div>
-        <div class="focus-price">${formatPrice(focus.price)}</div>
+        <div class="focus-buy">
+          <div class="focus-price">${formatPrice(focus.price)}</div>
+          <button class="buy" id="btn-add-cart" ${inStock(focus) ? "" : "disabled"}>${inStock(focus) ? "Savatga" : "Tugagan"}</button>
+        </div>
       </div>
       ${focus.description ? `<div class="focus-desc">${esc(focus.description)}</div>` : ""}
-      <div class="focus-row">
-        <div class="focus-sizes">${sizes || `<span class="muted">O'lcham yo'q</span>`}</div>
-        <button class="buy" id="btn-add-cart" ${inStock(focus) ? "" : "disabled"}>${inStock(focus) ? "Savatga" : "Tugagan"}</button>
-      </div>
-    </div>`;
+      <div class="focus-sizes">${sizes || `<span class="muted">O'lcham yo'q</span>`}</div>`;
   }
   if (worn.length) {
     const total = worn.reduce((a, p) => a + p.price, 0);
     html += `<div class="chips">${worn.map((p) => `<button class="chip" data-unwear="${p.id}">${esc(p.name)} ✕</button>`).join("")}
       <span class="chip total">Obraz: ${formatPrice(total)}</span></div>`;
   }
+  if (!html) {
+    html = `<div class="info-empty"><b>Kiyimni tanlang</b>U ko'zguda sizga kiydiriladi.
+      ${state.ai.enabled ? "Keyin ✨ AI foto — fotorealistik surat." : ""}</div>`;
+  }
   $("#look").innerHTML = html;
+}
+
+// ---------------- Fotorealistik AI ----------------
+function showLive() {
+  state.ai.showing = false;
+  $("#ai-result").hidden = true;
+  const b = $("#btn-ai");
+  b.querySelector("b").textContent = "✨";
+  b.querySelector("span").textContent = "AI foto";
+}
+
+function showAiResult() {
+  state.ai.showing = true;
+  const img = $("#ai-result");
+  img.src = state.ai.result;
+  img.hidden = false;
+  const b = $("#btn-ai");
+  b.querySelector("b").textContent = "◐";
+  b.querySelector("span").textContent = "Jonli";
+  setStatus("ai", "AI surat tayyor — ♡ Saqlash orqali telefonga oling");
+}
+
+let liveStatus = { mode: "manekin", text: "Manekin rejimi" };
+function setStatus(mode, text, remember = false) {
+  if (remember) liveStatus = { mode, text };
+  $("#status").dataset.mode = mode;
+  $("#status-text").textContent = text;
+}
+
+// Rasmi yuklanmagan kiyim uchun avtomatik tasvirni PNG'ga aylantirib yuboramiz.
+async function rasterizeGarment(p) {
+  const img = new Image();
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(garmentSVG(p.kind, p.color.hex));
+  await img.decode();
+  const c = document.createElement("canvas");
+  c.width = 768; c.height = 1024;
+  const x = c.getContext("2d");
+  x.fillStyle = "#fff";
+  x.fillRect(0, 0, c.width, c.height);
+  const k = Math.min(c.width / img.width, c.height / img.height) * 0.92;
+  x.drawImage(img, (c.width - img.width * k) / 2, (c.height - img.height * k) / 2, img.width * k, img.height * k);
+  return c.toDataURL("image/jpeg", 0.92);
+}
+
+async function runPhotoreal() {
+  if (state.ai.showing) { showLive(); setStatus(liveStatus.mode, liveStatus.text); return; }
+  if (state.ai.status === "running") { toast("AI surat tayyorlanmoqda…"); return; }
+  if (!state.ai.enabled) {
+    openSheet("ai-info", `<h3>✨ Fotorealistik AI surat</h3>
+      <p class="muted">Bu funksiya xaridorning kamera suratiga tanlangan kiyimlarni generativ AI yordamida haqiqiy fotodek kiydiradi (10–60 soniya).</p>
+      <p class="muted">Hozircha yoqilmagan. Do'kon administratori: <b>Admin → AI sozlamalari</b>.</p>
+      <button class="opt" id="btn-done">Yopish</button>`);
+    return;
+  }
+  const ids = SLOT_ORDER.map((s) => state.look[s]).filter(Boolean);
+  if (!ids.length) { toast("Avval kiyim tanlang"); return; }
+  const person = engine.captureClean();
+  if (!person) { toast("AI surat uchun kamerani yoqing va ko'zgu oldida to'liq turing"); return; }
+
+  const key = lookKey();
+  const btn = $("#btn-ai");
+  state.ai.status = "running";
+  btn.classList.add("busy");
+  $("#ai-progress").hidden = false;
+  const stage = $("#stage");
+  stage.classList.add("flash");
+  setTimeout(() => stage.classList.remove("flash"), 300);
+  const started = Date.now();
+  const tick = setInterval(() => setStatus("ai", `AI surat tayyorlanmoqda… ${Math.round((Date.now() - started) / 1000)} s`), 1000);
+  try {
+    const garments = {};
+    for (const id of ids) {
+      const p = byId(id);
+      if (!p.image) garments[id] = await rasterizeGarment(p);
+    }
+    let job = await api.photoreal({ session: await sessionId(), person, products: ids, garments });
+    while (job.status === "queued" || job.status === "running") {
+      await new Promise((r) => setTimeout(r, 2000));
+      job = await api.photorealStatus(job.id);
+    }
+    if (job.status !== "done") throw new Error(job.error || "AI surat yaratilmadi");
+    Object.assign(state.ai, { job: job.id, result: job.result, key });
+    if (lookKey() === key) showAiResult();
+    else toast("AI surat tayyor, lekin obraz o'zgardi");
+  } catch (err) {
+    toast(err.message);
+    setStatus(liveStatus.mode, liveStatus.text);
+  } finally {
+    clearInterval(tick);
+    state.ai.status = null;
+    btn.classList.remove("busy");
+    $("#ai-progress").hidden = true;
+  }
 }
 
 // ---------------- Varaqlar ----------------
@@ -455,7 +563,8 @@ async function saveLook() {
   try {
     let snapshot = null;
     try { snapshot = engine.snapshot(); } catch { /* boshqa domendagi rasm bo'lsa */ }
-    const res = await api.saveLook({ session: await sessionId(), products: items, snapshot });
+    const photoreal = state.ai.job && state.ai.key === lookKey() ? state.ai.job : null;
+    const res = await api.saveLook({ session: await sessionId(), products: items, snapshot: photoreal ? null : snapshot, photoreal });
     if (state.sheet !== "qr") return;
     openSheet("qr", `<div class="done">
       <div class="done-label">Telefoningiz kamerasi bilan skanerlang</div>
@@ -536,6 +645,11 @@ document.addEventListener("click", async (e) => {
       if (engine.cameraOn) engine.disableCamera(); else await engine.enableCamera();
       break;
     case "btn-save-look": saveLook(); break;
+    case "btn-ai": runPhotoreal(); break;
+    case "btn-expand":
+      document.body.classList.toggle("big");
+      $("#btn-expand span").textContent = document.body.classList.contains("big") ? "Kichik" : "Katta";
+      break;
     case "btn-clear": state.look = {}; state.focus = null; syncLayers(); render(); break;
     case "btn-add-cart": addToCart(); break;
     case "btn-order": placeOrder(); break;
