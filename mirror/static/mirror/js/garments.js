@@ -1,24 +1,23 @@
 // Kiyim tasvirlari.
-// Barcha kiyimlar bitta "tana koordinatalari" ramkasida chiziladi (200 x 360):
+// Barcha kiyimlar bitta "tana koordinatalari" ramkasida joylashadi (200 x 360):
 //   yelka bo'g'imlari: (56,40) va (144,40)   -> yelka o'rtasi (100,40)
 //   son bo'g'imlari o'rtasi: (100,160)
 //   to'piq darajasi: y ~ 345
 // tryon.js shu ramkani kamera orqali topilgan tana nuqtalariga affin o'zgartirish bilan joylaydi.
-// Do'kon o'z PNG rasmini (shaffof fonli) yuklasa, u turiga mos "quti" ichiga joylanadi.
-
-import { COLORS } from "./catalog.js";
+// Admin yuklagan rasm (fon olib tashlangan PNG) turiga mos "quti" ichiga joylanadi,
+// so'ng admin sozlagan moslash (fit: scale, dx, dy) qo'llanadi.
 
 export const FRAME = { w: 200, h: 360, shoulderL: 56, shoulderR: 144, shoulderY: 40, hipY: 160 };
 
-// Yuklangan PNG rasmlar uchun joylashuv qutisi (ramka koordinatalarida).
+// Yuklangan rasmlar uchun joylashuv qutisi (ramka koordinatalarida).
 export const UPLOAD_BOX = {
-  bluzka:   { x: 22, y: 20, w: 156, h: 156 },
-  futbolka: { x: 22, y: 20, w: 156, h: 152 },
-  pidjak:   { x: 18, y: 18, w: 164, h: 176 },
-  kurtka:   { x: 16, y: 16, w: 168, h: 182 },
+  bluzka:   { x: 22, y: 18, w: 156, h: 160 },
+  futbolka: { x: 20, y: 18, w: 160, h: 154 },
+  pidjak:   { x: 16, y: 16, w: 168, h: 178 },
+  kurtka:   { x: 14, y: 12, w: 172, h: 188 },
   shim:     { x: 50, y: 148, w: 100, h: 204 },
-  yubka:    { x: 36, y: 148, w: 128, h: 124 },
-  koylak:   { x: 26, y: 22, w: 148, h: 284 },
+  yubka:    { x: 36, y: 148, w: 128, h: 126 },
+  koylak:   { x: 26, y: 20, w: 148, h: 290 },
 };
 
 function shade(hex, amt) {
@@ -84,37 +83,54 @@ export function garmentSVG(type, hex) {
   const d = shade(hex, -0.18);
   const l = shade(hex, 0.25);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FRAME.w} ${FRAME.h}" width="${FRAME.w * 2}" height="${FRAME.h * 2}">
-    <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".45" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#000" stop-opacity=".2"/></linearGradient></defs>
     <g stroke-linejoin="round">${shapes(type, hex, d, l)}</g>
   </svg>`;
 }
 
-export function productHex(p) {
-  return (COLORS[p.color] || COLORS.kulrang).hex;
-}
-
 const svgUrl = (svg) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 
-// Katalog kartochkasi uchun rasm manbai (src).
+// Kartochka uchun rasm manbai (src). Rasmi yo'q kiyimga avtomatik tasvir.
 export function thumbnailSrc(p) {
-  return p.image || svgUrl(garmentSVG(p.type, productHex(p)));
+  return p.image || svgUrl(garmentSVG(p.kind, p.color?.hex || "#999999"));
+}
+
+// Rasmni qutiga proporsiyasini saqlagan holda (yuqoridan tekislab) joylash, so'ng moslashni qo'llash.
+export function placeBox(kind, img, hasUpload, fit = {}) {
+  let box;
+  if (!hasUpload) {
+    box = { x: 0, y: 0, w: FRAME.w, h: FRAME.h };
+  } else {
+    const b = UPLOAD_BOX[kind] || UPLOAD_BOX.bluzka;
+    const ar = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+    let w = b.w, h = b.w / ar;
+    if (h > b.h) { h = b.h; w = b.h * ar; }
+    box = { x: b.x + (b.w - w) / 2, y: b.y, w, h };
+  }
+  const s = fit.scale || 1;
+  const cx = box.x + box.w / 2;
+  return {
+    x: cx - (box.w * s) / 2 + (fit.dx || 0),
+    y: box.y + (fit.dy || 0) - (s - 1) * 6,
+    w: box.w * s,
+    h: box.h * s,
+  };
 }
 
 const cache = new Map();
 
-// Kiyib ko'rish uchun tasvir: { img, box } — box ramka koordinatalarida.
-export function loadGarment(p) {
-  const key = p.id + "|" + p.type + "|" + p.color + "|" + (p.image ? p.image.length : 0);
-  if (cache.has(key)) return cache.get(key);
-  const promise = new Promise((resolve, reject) => {
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve({
-      img,
-      box: p.image ? UPLOAD_BOX[p.type] : { x: 0, y: 0, w: FRAME.w, h: FRAME.h },
-    });
+    img.onload = () => resolve(img);
     img.onerror = reject;
-    img.src = thumbnailSrc(p);
+    img.src = src;
   });
-  cache.set(key, promise);
-  return promise;
+}
+
+// Kiyib ko'rish uchun qatlam: { img, box } — box ramka koordinatalarida.
+export async function loadGarment(p) {
+  const src = thumbnailSrc(p);
+  if (!cache.has(src)) cache.set(src, loadImage(src));
+  const img = await cache.get(src);
+  return { img, box: placeBox(p.kind, img, Boolean(p.image), p.fit) };
 }

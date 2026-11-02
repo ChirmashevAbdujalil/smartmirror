@@ -1,0 +1,39 @@
+{% load static humanize %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mening obrazim — Smart Mirror</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'mirror/css/staff.css' %}">
+  <style>
+    .wrap { max-width: 520px; }
+    .snap { width: 100%; border-radius: 22px; display: block; margin-bottom: 16px; }
+    .item { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .item img, .item .swatch { width: 56px; height: 70px; }
+    .item div { flex: 1; } .item small { color: var(--muted); display: block; }
+    .price { font-weight: 700; color: var(--pink); white-space: nowrap; }
+    .total { display: flex; justify-content: space-between; font-size: 18px; padding: 14px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="head"><div><div class="eyebrow">Smart Mirror</div><h1>Mening <b>obrazim</b></h1></div></header>
+    {% if look.snapshot %}<img class="snap" src="{{ look.snapshot.url }}" alt="Ko'zgudagi surat">{% endif %}
+    <section class="block">
+      {% for p in products %}
+      <div class="item">
+        {% if p.tryon_image %}<img class="thumb" src="{{ p.tryon_image.url }}" alt="">{% else %}<span class="swatch" style="background:{{ p.color.hex }}"></span>{% endif %}
+        <div><b>{{ p.name }}</b><small>{{ p.get_kind_display }} · {{ p.get_style_display }} · {{ p.color.name }}</small>
+          <small>O'lchamlar: {% for s in p.sizes.all %}{% if s.stock %}{{ s.size }} {% endif %}{% empty %}—{% endfor %}</small></div>
+        <span class="price">{{ p.price|intcomma }} so'm</span>
+      </div>
+      {% endfor %}
+      <div class="total"><span>Jami</span><b>{{ total|intcomma }} so'm</b></div>
+    </section>
+    <p class="muted">Saqlangan: {{ look.created_at|date:"d.m.Y H:i" }}. Ushbu kiyimlarni do'konimizda topishingiz mumkin.</p>
+  </div>
+</body>
+</html>

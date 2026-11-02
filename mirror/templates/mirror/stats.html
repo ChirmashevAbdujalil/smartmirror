@@ -1,0 +1,53 @@
+{% extends "mirror/staff_base.html" %}
+{% load humanize %}
+{% block title %}Statistika — Smart Mirror{% endblock %}
+{% block heading %}Do'kon <b>statistikasi</b>{% endblock %}
+{% block content %}
+<div class="filters">
+  <a class="btn small {% if days == 1 %}on{% endif %}" href="?days=1">Bugun</a>
+  <a class="btn small {% if days == 7 %}on{% endif %}" href="?days=7">7 kun</a>
+  <a class="btn small {% if days == 30 %}on{% endif %}" href="?days=30">30 kun</a>
+  <a class="btn small {% if days == 90 %}on{% endif %}" href="?days=90">90 kun</a>
+</div>
+<div class="cards">
+  {% for label, value in cards %}<div class="stat"><b>{{ value }}</b><span>{{ label }}</span></div>{% endfor %}
+</div>
+
+<section class="block">
+  <h2>Kiyimlar: sinab ko'rish → sotuv</h2>
+  {% if rows %}
+  <table>
+    <tr><th></th><th>Kiyim</th><th>Sinab ko'rildi</th><th></th><th class="num">Buyurtma</th><th class="num">Sotildi</th><th class="num">Konversiya</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td>{% if r.p.tryon_image %}<img class="thumb" src="{{ r.p.tryon_image.url }}" alt="">{% else %}<span class="swatch" style="background:{{ r.p.color.hex }}"></span>{% endif %}</td>
+      <td><a href="{% url 'admin:mirror_product_change' r.p.pk %}">{{ r.p.name }}</a></td>
+      <td class="num">{{ r.tries }}</td>
+      <td style="width:30%"><div class="bar"><i style="width:{{ r.bar }}%"></i></div></td>
+      <td class="num">{{ r.ordered }}</td>
+      <td class="num">{{ r.sold }}</td>
+      <td class="num">{{ r.conv }}%</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="muted">Ko'p sinab ko'rilib, kam sotilayotgan kiyimlar — narx yoki o'lcham muammosi bo'lishi mumkin.</p>
+  {% else %}<p class="muted">Bu davrda ma'lumot yo'q.</p>{% endif %}
+</section>
+
+<section class="block">
+  <h2>Buyurtmalar holati</h2>
+  <div class="cards">{% for label, n in by_status %}<div class="stat"><b>{{ n }}</b><span>{{ label }}</span></div>{% endfor %}</div>
+</section>
+
+<section class="block">
+  <h2>Omborda tugayotganlar</h2>
+  {% if low_stock %}
+  <table>
+    <tr><th>Kiyim</th><th>O'lcham</th><th class="num">Qoldiq</th></tr>
+    {% for s in low_stock %}
+    <tr><td><a href="{% url 'admin:mirror_product_change' s.product.pk %}">{{ s.product.name }}</a></td><td>{{ s.size }}</td><td class="num">{{ s.stock }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">Hammasi yetarli.</p>{% endif %}
+</section>
+{% endblock %}

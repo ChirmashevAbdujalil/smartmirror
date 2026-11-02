@@ -1,29 +1,27 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="uz">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d0b10">
-  <title>Smart Mirror</title>
+  <title>Smart Mirror — {{ device.name }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/mirror.css">
+  <link rel="stylesheet" href="{% static 'mirror/css/mirror.css' %}">
 </head>
-<body>
+<body data-device="{{ device.slug }}">
   <div class="mirror">
     <header class="topbar">
       <div class="clock">
         <div class="time" id="time">--:--</div>
-        <div class="weather" id="weather">
-          <span class="w-icon">☀</span><span class="w-temp">--°C</span><span class="w-city"></span>
-        </div>
+        <div class="weather" id="weather"><span class="w-city"></span></div>
       </div>
       <div class="brand">
         <span class="brand-name">Smart <b>Mirror</b></span>
         <span class="brand-sub">O'zingizning uslubingiz — endi yanada oson!</span>
       </div>
-      <button class="icon-btn" id="btn-settings" aria-label="Sozlamalar" title="Sozlamalar">⚙</button>
+      <button class="icon-btn" id="btn-settings" aria-label="Boshqa" title="Boshqa">⚙</button>
     </header>
 
     <main class="stage-wrap">
@@ -35,18 +33,18 @@
           <div class="status" id="status"><span class="dot"></span><span id="status-text">Manekin rejimi</span></div>
           <div class="session" id="session" hidden></div>
         </div>
+        <div class="guide-msg" id="guide" hidden></div>
 
         <div class="stage-actions">
           <button class="round-btn" id="btn-camera" title="Kamera">📷</button>
-          <button class="round-btn" id="btn-snap" title="Rasmga olish">⤓</button>
-          <button class="round-btn" id="btn-save-look" title="Obrazni saqlash">♡</button>
+          <button class="round-btn" id="btn-save-look" title="Obrazni saqlash va telefonga olish">♡</button>
           <button class="round-btn" id="btn-clear" title="Tozalash">✕</button>
         </div>
 
         <div class="look" id="look"></div>
       </section>
 
-      <aside class="rail" id="rail" aria-label="Kiyimlar"></aside>
+      <aside class="rail" id="rail" aria-label="Kiyimlar"><div class="empty">Yuklanmoqda…</div></aside>
     </main>
 
     <nav class="filters" id="filters">
@@ -59,6 +57,7 @@
     <nav class="tabbar">
       <button class="active" data-tab="clothes"><span class="ti">👚</span>Kiyimlar</button>
       <button data-tab="favs"><span class="ti">♡</span>Sevimlilar</button>
+      <button data-tab="cart"><span class="ti">🛍<i class="tab-badge" id="cart-badge" hidden>0</i></span>Savat</button>
       <button data-tab="more"><span class="ti">⋯</span>Boshqa</button>
     </nav>
 
@@ -79,6 +78,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="{% static 'mirror/js/app.js' %}"></script>
 </body>
 </html>

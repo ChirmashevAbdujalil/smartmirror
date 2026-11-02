@@ -1,0 +1,9 @@
+{% extends "mirror/staff_base.html" %}
+{% block heading %}Ko'zgu <b>sozlanmagan</b>{% endblock %}
+{% block content %}
+<div class="block">
+  <p>Hali birorta ko'zgu qurilmasi qo'shilmagan.</p>
+  <p>Demo ma'lumotlar uchun: <code>python manage.py seed_demo</code></p>
+  <p>Yoki admin panelda qo'shing: <a href="{% url 'admin:mirror_mirrordevice_add' %}">Ko'zgu qurilmasi qo'shish</a></p>
+</div>
+{% endblock %}

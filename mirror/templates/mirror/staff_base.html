@@ -1,0 +1,27 @@
+{% load static %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Smart Mirror{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'mirror/css/staff.css' %}">
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <div><div class="eyebrow">Smart Mirror</div><h1>{% block heading %}{% endblock %}</h1></div>
+      <nav class="links">
+        <a class="btn" href="{% url 'mirror:staff_orders' %}">Buyurtmalar</a>
+        <a class="btn" href="{% url 'mirror:stats' %}">Statistika</a>
+        <a class="btn" href="{% url 'admin:mirror_product_changelist' %}">Kiyimlar</a>
+        <a class="btn" href="{% url 'admin:index' %}">Admin</a>
+      </nav>
+    </header>
+    {% block content %}{% endblock %}
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

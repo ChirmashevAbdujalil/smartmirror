@@ -1,0 +1,12 @@
+{% extends "admin/index.html" %}
+{% block content %}
+<div class="module" style="margin-bottom:20px">
+  <h2>Smart Mirror</h2>
+  <table style="width:100%">
+    <tr><th scope="row"><a href="{% url 'mirror:staff_orders' %}">Konsultant paneli — buyurtmalar</a></th></tr>
+    <tr><th scope="row"><a href="{% url 'mirror:stats' %}">Statistika va konversiya</a></th></tr>
+    <tr><th scope="row"><a href="{% url 'mirror:home' %}" target="_blank">Ko'zguni ochish ↗</a></th></tr>
+  </table>
+</div>
+{{ block.super }}
+{% endblock %}
