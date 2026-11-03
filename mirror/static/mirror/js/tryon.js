@@ -79,8 +79,21 @@ export function drawGarments(ctx, pose, layers) {
   ctx.shadowBlur = 6;
   for (const { img, box } of layers) {
     ctx.globalAlpha = 0.97;
-    ctx.drawImage(img, box.x, box.y, box.w, box.h);
+    drawInBox(ctx, img, box);
   }
+  ctx.restore();
+}
+
+// Rasmni qutiga (ixtiyoriy burchak bilan, markaz atrofida) chizish.
+export function drawInBox(ctx, img, box) {
+  if (!box.r) {
+    ctx.drawImage(img, box.x, box.y, box.w, box.h);
+    return;
+  }
+  ctx.save();
+  ctx.translate(box.x + box.w / 2, box.y + box.h / 2);
+  ctx.rotate((box.r * Math.PI) / 180);
+  ctx.drawImage(img, -box.w / 2, -box.h / 2, box.w, box.h);
   ctx.restore();
 }
 

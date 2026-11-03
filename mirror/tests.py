@@ -179,7 +179,7 @@ class PageTests(BaseCase):
         data = {
             "name": "Yangi bluzka", "kind": "bluzka", "style": "klassik", "color": self.color.pk, "price": 100000,
             "description": "", "is_active": "on", "sort_order": 0, "remove_background": "on",
-            "fit_scale": 1.0, "fit_offset_x": 0, "fit_offset_y": 0,
+            "placement": '{"x": 30, "y": 24, "w": 140, "h": 150, "r": -4.5}',
             "sizes-TOTAL_FORMS": 6, "sizes-INITIAL_FORMS": 0, "sizes-MIN_NUM_FORMS": 0, "sizes-MAX_NUM_FORMS": 6,
         }
         for i, s in enumerate(["XS", "S", "M", "L", "XL", "XXL"]):
@@ -189,6 +189,7 @@ class PageTests(BaseCase):
         self.assertEqual(r.status_code, 302, r.content.decode()[:2000])
         p = Product.objects.get(name="Yangi bluzka")
         self.assertEqual({s.size: s.stock for s in p.sizes.all()}, {"M": 3})
+        self.assertEqual(p.placement, {"x": 30.0, "y": 24.0, "w": 140.0, "h": 150.0, "r": -4.5})
 
 
 # ---------------- Fotorealistik AI ----------------
@@ -322,3 +323,59 @@ class PhotorealTests(BaseCase):
         PhotorealJob.objects.create(session_id=sid, provider="http", status="running", person_image="x.jpg")
         r = self.post("mirror:api_photoreal_create", {"session": sid, "person": _uri(_img_bytes()), "products": [self.pants.id]})
         self.assertEqual(r.status_code, 409)
+
+
+
+# ---------------- Tanaga joylash (placement) ----------------
+from django.core.exceptions import ValidationError as DjangoValidationError
+
+from .models import normalize_placement
+
+
+class PlacementTests(BaseCase):
+    def test_normalize(self):
+        self.assertIsNone(normalize_placement(None))
+        self.assertIsNone(normalize_placement({}))
+        self.assertEqual(normalize_placement({"x": 1.234, "y": 2, "w": 50, "h": 60}),
+                         {"x": 1.23, "y": 2.0, "w": 50.0, "h": 60.0, "r": 0.0})
+        for bad in ({"x": 1, "y": 2, "w": 3, "h": 60},        # juda kichik
+                    {"x": "a", "y": 2, "w": 50, "h": 60},      # son emas
+                    {"x": 1, "y": 2, "w": 50, "h": 60, "r": 90},
+                    [1, 2, 3]):
+            with self.assertRaises(ValueError):
+                normalize_placement(bad)
+
+    def test_model_clean(self):
+        self.p.placement = {"x": 1, "y": 2, "w": 50}
+        with self.assertRaises(DjangoValidationError):
+            self.p.full_clean()
+
+    def test_catalog_returns_placement(self):
+        self.p.placement = {"x": 20, "y": 30, "w": 160, "h": 280, "r": 2}
+        self.p.save()
+        prod = self.client.get(reverse("mirror:api_catalog")).json()["products"][0]
+        self.assertEqual(prod["placement"], {"x": 20, "y": 30, "w": 160, "h": 280, "r": 2})
+
+    def test_admin_shows_error_for_bad_placement(self):
+        admin = get_user_model().objects.create_superuser("admin", "a@a.uz", "pass12345")
+        self.client.force_login(admin)
+        data = {
+            "name": "X", "kind": "bluzka", "style": "klassik", "color": self.color.pk, "price": 1,
+            "description": "", "sort_order": 0, "placement": '{"x": 0, "y": 0, "w": 1, "h": 1}',
+            "sizes-TOTAL_FORMS": 0, "sizes-INITIAL_FORMS": 0, "sizes-MIN_NUM_FORMS": 0, "sizes-MAX_NUM_FORMS": 6,
+        }
+        r = self.client.post("/admin/mirror/product/add/", data)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Kiyim joylashuvi")
+        self.assertFalse(Product.objects.filter(name="X").exists())
+
+    def test_legacy_fit_migration_math(self):
+        import importlib
+        mig = importlib.import_module("mirror.migrations.0003_placement")
+        # Rasm yo'q (avtomatik tasvir): ilgari butun ramka 1.1 marta kattalashtirilgan edi;
+        # endi tasvir ko'ylak chegarasigacha qirqilgan (26, 26, 148, 288).
+        self.assertEqual(mig.legacy_box("koylak", None, 1.1, 0, 0),
+                         {"x": 18.6, "y": 28.0, "w": 162.8, "h": 316.8, "r": 0.0})
+        # Shim rasmi 100x200: qutiga 100 kenglikda, y=148 dan.
+        self.assertEqual(mig.legacy_box("shim", (100, 200), 1.0, 5, -4),
+                         {"x": 55.0, "y": 144.0, "w": 100.0, "h": 200.0, "r": 0.0})

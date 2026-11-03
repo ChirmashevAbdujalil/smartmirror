@@ -1,0 +1,30 @@
+/* Kiyimni tanaga joylash muharriri (Django admin ichida). Admin mavzusi o'zgaruvchilaridan foydalanadi. */
+.smp { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+.smp-stage { position: relative; width: min(380px, 100%); flex: none; }
+.smp-stage canvas {
+  display: block; width: 100%; border-radius: 14px; touch-action: none; outline: none;
+  box-shadow: 0 0 0 2px rgba(240, 98, 146, .35);
+}
+.smp-stage canvas:focus-visible { box-shadow: 0 0 0 3px #f06292; }
+.smp-mode {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  background: rgba(0, 0, 0, .6); color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  pointer-events: none;
+}
+.smp-mode.manual { background: #e2557f; }
+.smp-panel { flex: 1 1 280px; display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
+.smp-title { font-weight: 600; margin-bottom: 6px; color: var(--body-fg, #333); }
+.smp-unit { font-weight: 400; color: var(--body-quiet-color, #888); font-size: 12px; }
+.smp-zones, .smp-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.smp-btn {
+  font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-color, #ccc); background: var(--body-bg, #fff); color: var(--body-fg, #333);
+}
+.smp-btn:hover:not(:disabled) { border-color: #e2557f; color: #e2557f; }
+.smp-btn:disabled { opacity: .45; cursor: not-allowed; }
+.smp-btn.rec::after { content: " ★"; color: #e2557f; }
+.smp-nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.smp-nums label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--body-quiet-color, #666); }
+.smp-nums input { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 6px; }
+.smp-check { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
+.smp-note { font-size: 12px; line-height: 1.5; color: var(--body-quiet-color, #666); }

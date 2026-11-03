@@ -31,7 +31,11 @@ o'z panelida ko'radi va kiyimni kiyinish xonasiga olib keladi.
 **Admin panel** (`/admin/`)
 - Kiyimlar: turi, uslubi, rangi, narxi, tavsifi, o'lchamlar bo'yicha ombor.
 - Rasm yuklanganda **fon avtomatik olib tashlanadi** (oq/bir xil fonli surat yetarli) va kiyim chegarasigacha qirqiladi.
-- **Jonli oldindan ko'rish:** kiyim manekinda qanday ko'rinishi, o'lcham va siljishni sozlash.
+- **Tanaga joylash muharriri (canvas):** kiyim manekin ustida ko'rsatiladi. Uni sichqoncha yoki barmoq bilan surish,
+  burchak va qirralaridan kattalashtirish, tepadagi doiracha bilan burish mumkin. Tana chiziqlari (yelka, ko'krak,
+  bel, son, tizza, to'piq) belgilangan. **Tana qismi bo'yicha joylash** tugmalari ("Yelka → Son", "Bel → To'piq" …)
+  kiyimni bir bosishda kerakli qismga qo'yadi (★ — turiga tavsiya). Aniq raqamlar va klaviatura ham bor.
+  Ko'zguda kiyim xaridor tanasining aynan shu qismiga kiydiriladi.
 - Ko'zgu qurilmalari (bir nechta ko'zgu, har birining shahri va kutish vaqti), ranglar, buyurtmalar, sessiyalar, obrazlar.
 
 **Konsultant paneli** (`/staff/`)
@@ -140,7 +144,8 @@ mirror/api.py               Ko'zgu uchun JSON API
 mirror/views.py             Ko'zgu sahifasi, obraz sahifasi, konsultant paneli, statistika
 mirror/imaging.py           Rasm fonini olib tashlash (Pillow)
 mirror/vton.py              Fotorealistik AI: FASHN / Replicate / o'z serverimiz, fon oqimida bajarish
-mirror/static/mirror/js/    app.js (ko'zgu), tryon.js (kamera + AI), garments.js, api.js, weather.js, admin-fit.js
+mirror/static/mirror/js/    app.js (ko'zgu), tryon.js (kamera + AI), garments.js, api.js, weather.js,
+                            admin-place.js (admin: kiyimni tanaga joylash muharriri)
 mirror/templates/mirror/    Shablonlar
 mirror/management/commands/seed_demo.py   Demo ma'lumotlar
 ```
@@ -164,6 +169,8 @@ mirror/management/commands/seed_demo.py   Demo ma'lumotlar
 1. Kamera tasviri ko'zgudek teskari ko'rsatiladi.
 2. MediaPipe Pose Landmarker har kadrda yelka va son nuqtalarini topadi.
 3. Har bir kiyim 200×360 "tana ramkasi"da joylashadi: yelkalar `(56,40)–(144,40)`, son o'rtasi `(100,160)`.
+   Admin muharrirda belgilagan joy shu ramkada `placement = {x, y, w, h, r}` ko'rinishida saqlanadi
+   (belgilanmagan bo'lsa — turiga qarab avtomatik).
    Ramka topilgan nuqtalarga affin matritsa bilan joylanadi, shuning uchun odam yaqinlashsa, uzoqlashsa yoki egilsa, kiyim ham moslashadi.
 4. Qatlamlar: past (shim/yubka) → ichki (bluzka/futbolka) yoki ko'ylak → ustki (pidjak/kurtka).
 
@@ -171,7 +178,7 @@ mirror/management/commands/seed_demo.py   Demo ma'lumotlar
 
 - Kiyimni old tomondan, tekis yoyib, **oq yoki bir xil rangli fonda** suratga oling.
 - Yoki fonsiz (shaffof) PNG yuklang.
-- Saqlagach, "Ko'zgudagi ko'rinish"da tekshiring va kerak bo'lsa "o'lcham koeffitsienti"ni (masalan, 1.1) va siljishni sozlang.
+- Saqlagach, "Tanadagi joyi" muharririda tekshiring: kiyimni tegishli tana qismiga surib, kattalashtirib qo'ying.
 
 ## Keyingi bosqichlar
 

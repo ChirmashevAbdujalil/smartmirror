@@ -79,7 +79,7 @@ def product_json(p, popularity=0):
         "description": p.description,
         "sizes": {s: sizes[s] for s in SIZE_ORDER if s in sizes},
         "image": p.tryon_image.url if p.tryon_image else None,
-        "fit": {"scale": p.fit_scale, "dx": p.fit_offset_x, "dy": p.fit_offset_y},
+        "placement": p.placement,
         "isNew": p.is_new,
         "popularity": popularity,
     }

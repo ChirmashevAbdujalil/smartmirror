@@ -1,6 +1,7 @@
 import secrets
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models, transaction
 from django.db.models import F
@@ -83,6 +84,27 @@ class Color(models.Model):
         return self.name
 
 
+# Tana ramkasi (200 x 360): yelka y=40, son y=160, to'piq y~345. Kiyim joyi shu ramkada saqlanadi.
+PLACEMENT_LIMITS = {"x": (-200, 400), "y": (-120, 480), "w": (8, 420), "h": (8, 480), "r": (-60, 60)}
+
+
+def normalize_placement(value):
+    """Joylashuvni tekshiradi va yaxlitlaydi. None — avtomatik joylash."""
+    if value in (None, "", {}):
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("Joylashuv noto'g'ri formatda")
+    out = {}
+    for key, (lo, hi) in PLACEMENT_LIMITS.items():
+        raw = value.get(key, 0 if key == "r" else None)
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+            raise ValueError(f"Joylashuvda '{key}' son bo'lishi kerak")
+        if not lo <= raw <= hi:
+            raise ValueError(f"Joylashuv '{key}' qiymati chegaradan tashqarida ({lo}…{hi})")
+        out[key] = round(float(raw), 2)
+    return out
+
+
 class Product(models.Model):
     name = models.CharField("nomi", max_length=80)
     kind = models.CharField("turi", max_length=20, choices=Kind.choices)
@@ -98,13 +120,10 @@ class Product(models.Model):
     remove_background = models.BooleanField("fonni avtomatik olib tashlash", default=True)
     tryon_image = models.ImageField("kiyib ko'rish tasviri", upload_to="products/tryon/", blank=True, editable=False)
     processed_from = models.CharField(max_length=300, blank=True, editable=False)
-    fit_scale = models.FloatField(
-        "o'lcham koeffitsienti", default=1.0,
-        validators=[MinValueValidator(0.5), MaxValueValidator(1.8)],
-        help_text="Tanaga nisbatan kattalik (1.0 — standart).",
+    placement = models.JSONField(
+        "tanadagi joylashuvi", null=True, blank=True,
+        help_text="Kiyimning tana ramkasidagi joyi: {x, y, w, h, r}. Bo'sh — turiga qarab avtomatik joylanadi.",
     )
-    fit_offset_x = models.FloatField("gorizontal siljish", default=0, validators=[MinValueValidator(-60), MaxValueValidator(60)])
-    fit_offset_y = models.FloatField("vertikal siljish", default=0, validators=[MinValueValidator(-80), MaxValueValidator(80)])
     is_active = models.BooleanField("ko'zguda ko'rsatish", default=True)
     is_new = models.BooleanField("yangi kolleksiya", default=False)
     sort_order = models.PositiveIntegerField("tartib", default=0)
@@ -126,6 +145,13 @@ class Product(models.Model):
     @property
     def total_stock(self):
         return sum(s.stock for s in self.sizes.all())
+
+    def clean(self):
+        super().clean()
+        try:
+            self.placement = normalize_placement(self.placement)
+        except ValueError as e:
+            raise ValidationError({"placement": str(e)})
 
     def _processing_key(self):
         return f"{self.photo.name}|{int(self.remove_background)}" if self.photo else ""

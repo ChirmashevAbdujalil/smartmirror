@@ -5,7 +5,7 @@
 //   to'piq darajasi: y ~ 345
 // tryon.js shu ramkani kamera orqali topilgan tana nuqtalariga affin o'zgartirish bilan joylaydi.
 // Admin yuklagan rasm (fon olib tashlangan PNG) turiga mos "quti" ichiga joylanadi,
-// so'ng admin sozlagan moslash (fit: scale, dx, dy) qo'llanadi.
+// yoki admin muharrirda belgilagan aniq joyga (placement: x, y, w, h, r) qo'yiladi.
 
 export const FRAME = { w: 200, h: 360, shoulderL: 56, shoulderR: 144, shoulderY: 40, hipY: 160 };
 
@@ -79,10 +79,23 @@ function shapes(type, c, d, l) {
   }
 }
 
+// Avtomatik tasvirlarning ramkadagi haqiqiy chegarasi (chiziq qalinligi bilan).
+// Tasvir shu chegaragacha qirqiladi — admin muharririda ramka kiyimning o'ziga mos keladi.
+export const SVG_BOUNDS = {
+  bluzka:   { x: 24, y: 26, w: 152, h: 154 },
+  futbolka: { x: 22, y: 26, w: 156, h: 144 },
+  pidjak:   { x: 22, y: 24, w: 156, h: 168 },
+  kurtka:   { x: 16, y: 10, w: 168, h: 194 },
+  shim:     { x: 50, y: 146, w: 100, h: 206 },
+  yubka:    { x: 36, y: 146, w: 128, h: 132 },
+  koylak:   { x: 26, y: 26, w: 148, h: 288 },
+};
+
 export function garmentSVG(type, hex) {
   const d = shade(hex, -0.18);
   const l = shade(hex, 0.25);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FRAME.w} ${FRAME.h}" width="${FRAME.w * 2}" height="${FRAME.h * 2}">
+  const b = SVG_BOUNDS[type] || { x: 0, y: 0, w: FRAME.w, h: FRAME.h };
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x} ${b.y} ${b.w} ${b.h}" width="${b.w * 3}" height="${b.h * 3}">
     <g stroke-linejoin="round">${shapes(type, hex, d, l)}</g>
   </svg>`;
 }
@@ -94,26 +107,35 @@ export function thumbnailSrc(p) {
   return p.image || svgUrl(garmentSVG(p.kind, p.color?.hex || "#999999"));
 }
 
-// Rasmni qutiga proporsiyasini saqlagan holda (yuqoridan tekislab) joylash, so'ng moslashni qo'llash.
-export function placeBox(kind, img, hasUpload, fit = {}) {
-  let box;
+// Tana chiziqlari (ramka koordinatalarida) — admin muharriri va hisob-kitoblar uchun.
+export const BODY_LINES = [
+  { y: 40, label: "Yelka" },
+  { y: 78, label: "Ko'krak" },
+  { y: 122, label: "Bel" },
+  { y: 160, label: "Son" },
+  { y: 255, label: "Tizza" },
+  { y: 345, label: "To'piq" },
+];
+
+// Turiga qarab avtomatik joy: rasm proporsiyasini saqlab, qutiga yuqoridan tekislab joylash.
+export function autoBox(kind, img, hasUpload) {
   if (!hasUpload) {
-    box = { x: 0, y: 0, w: FRAME.w, h: FRAME.h };
-  } else {
-    const b = UPLOAD_BOX[kind] || UPLOAD_BOX.bluzka;
-    const ar = (img.naturalWidth || 1) / (img.naturalHeight || 1);
-    let w = b.w, h = b.w / ar;
-    if (h > b.h) { h = b.h; w = b.h * ar; }
-    box = { x: b.x + (b.w - w) / 2, y: b.y, w, h };
+    const b = SVG_BOUNDS[kind] || { x: 0, y: 0, w: FRAME.w, h: FRAME.h };
+    return { ...b, r: 0 };
   }
-  const s = fit.scale || 1;
-  const cx = box.x + box.w / 2;
-  return {
-    x: cx - (box.w * s) / 2 + (fit.dx || 0),
-    y: box.y + (fit.dy || 0) - (s - 1) * 6,
-    w: box.w * s,
-    h: box.h * s,
-  };
+  const b = UPLOAD_BOX[kind] || UPLOAD_BOX.bluzka;
+  const ar = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+  let w = b.w, h = b.w / ar;
+  if (h > b.h) { h = b.h; w = b.h * ar; }
+  return { x: b.x + (b.w - w) / 2, y: b.y, w, h, r: 0 };
+}
+
+// Admin belgilagan joy (placement) bo'lsa — aynan o'sha, aks holda avtomatik.
+export function placeBox(kind, img, hasUpload, placement) {
+  if (placement && placement.w > 0 && placement.h > 0) {
+    return { x: placement.x, y: placement.y, w: placement.w, h: placement.h, r: placement.r || 0 };
+  }
+  return autoBox(kind, img, hasUpload);
 }
 
 const cache = new Map();
@@ -132,5 +154,5 @@ export async function loadGarment(p) {
   const src = thumbnailSrc(p);
   if (!cache.has(src)) cache.set(src, loadImage(src));
   const img = await cache.get(src);
-  return { img, box: placeBox(p.kind, img, Boolean(p.image), p.fit) };
+  return { img, box: placeBox(p.kind, img, Boolean(p.image), p.placement) };
 }
