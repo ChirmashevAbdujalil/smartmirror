@@ -12,7 +12,7 @@ from PIL import Image
 
 from .imaging import make_tryon_image
 from .models import (
-    Color, Look, MirrorDevice, MirrorSession, Order, OrderStatus, Product, ProductSize, TryOn,
+    AISettings, Color, Look, MirrorDevice, MirrorSession, Order, OrderStatus, Product, ProductSize, TryOn,
 )
 
 TMP_MEDIA = tempfile.mkdtemp()
@@ -166,8 +166,9 @@ class PageTests(BaseCase):
         self.assertEqual(r.status_code, 200)
         order.refresh_from_db()
         self.assertEqual(order.status, "sold")
-        self.assertEqual(self.client.get(reverse("mirror:stats")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("mirror:staff_orders")).status_code, 200)
+        # Eski manzillar yangi boshqaruv paneliga yo'naltiradi.
+        self.assertRedirects(self.client.get(reverse("mirror:stats")), "/panel/stats/?days=30")
+        self.assertRedirects(self.client.get(reverse("mirror:staff_orders")), "/panel/orders/")
         # Admin sahifalari ham ochiladi.
         for url in ("/admin/", "/admin/mirror/product/", "/admin/mirror/product/add/",
                     f"/admin/mirror/product/{self.p.pk}/change/", "/admin/mirror/order/", "/admin/mirror/mirrorsession/"):
@@ -435,3 +436,182 @@ class TryonPreviewTests(BaseCase):
         self.assertEqual(r.status_code, 400)
         self.assertIn("o'qilmadi", r.json()["error"])
         self.assertEqual(self.client.post(self.url, {"product": self.p.pk}).status_code, 400)  # rasmi yo'q
+
+
+
+# ---------------- Boshqaruv paneli (/panel/) ----------------
+
+class PanelTests(BaseCase):
+    def setUp(self):
+        super().setUp()
+        User = get_user_model()
+        self.admin = User.objects.create_superuser("boss", "b@b.uz", "pass12345")
+        self.staff = User.objects.create_user("kons", password="pass12345", is_staff=True)
+        self.customer = User.objects.create_user("mijoz", password="pass12345")
+
+    def test_login_flow_and_access(self):
+        r = self.client.get("/panel/")
+        self.assertRedirects(r, "/panel/login/?next=/panel/")
+        # Xodim bo'lmagan foydalanuvchi kira olmaydi.
+        r = self.client.post("/panel/login/", {"username": "mijoz", "password": "pass12345"})
+        self.assertContains(r, "kirish huquqi yo")
+        r = self.client.post("/panel/login/", {"username": "kons", "password": "pass12345"})
+        self.assertRedirects(r, "/panel/")
+        # Konsultant: oddiy bo'limlar ochiladi, administrator bo'limlari yo'q.
+        for url in ("/panel/", "/panel/products/", "/panel/products/new/", f"/panel/products/{self.p.pk}/",
+                    "/panel/stock/", "/panel/orders/", "/panel/stats/", "/panel/colors/", "/panel/devices/",
+                    "/panel/devices/new/", "/panel/looks/", "/panel/sessions/"):
+            self.assertEqual(self.client.get(url).status_code, 200, url)
+        for url in ("/panel/users/", "/panel/ai/", "/panel/users/new/"):
+            self.assertEqual(self.client.get(url).status_code, 403, url)
+        self.client.post("/panel/logout/")
+        self.assertEqual(self.client.get("/panel/").status_code, 302)
+
+    def test_dashboard_with_data(self):
+        self.client.force_login(self.admin)
+        sid = self.post("mirror:api_session_start", {"device": "test"}).json()["session"]
+        self.post("mirror:api_session_try", {"product": self.p.id}, session_id=sid)
+        self.post("mirror:api_order_create", {"session": sid, "items": [{"product": self.p.id, "size": "M"}]})
+        Order.objects.update(status="sold")
+        r = self.client.get("/panel/")
+        self.assertContains(r, "500 000 so&#x27;m")       # bugungi sotuv
+        self.assertContains(r, 'id="revenue-data"')
+        self.assertContains(r, "Ko&#x27;ylak")             # eng ko'p sinab ko'rilgan
+        series = r.context["revenue_daily"]
+        self.assertEqual(len(series), 14)
+        self.assertEqual(series[-1]["value"], 500000)
+        self.assertEqual(r.context["tries_daily"][-1]["value"], 1)
+
+    def _product_post(self, **over):
+        data = {
+            "name": "Panel bluzka", "kind": "bluzka", "style": "klassik", "color": self.color.pk, "price": 150000,
+            "description": "", "is_active": "on", "sort_order": 0, "remove_background": "on",
+            "placement": '{"x": 30, "y": 24, "w": 140, "h": 150, "r": 0}',
+            "sizes-TOTAL_FORMS": 6, "sizes-INITIAL_FORMS": 0, "sizes-MIN_NUM_FORMS": 0, "sizes-MAX_NUM_FORMS": 6,
+        }
+        for i, s in enumerate(["XS", "S", "M", "L", "XL", "XXL"]):
+            data[f"sizes-{i}-size"] = s
+            data[f"sizes-{i}-stock"] = {"M": 4, "L": 2}.get(s, 0)
+        data.update(over)
+        return self.client.post("/panel/products/new/", data)
+
+    def test_product_create_edit_toggle_delete(self):
+        self.client.force_login(self.staff)
+        r = self._product_post()
+        p = Product.objects.get(name="Panel bluzka")
+        self.assertRedirects(r, f"/panel/products/{p.pk}/")
+        self.assertEqual({s.size: s.stock for s in p.sizes.all()}, {"M": 4, "L": 2})
+        self.assertEqual(p.placement["w"], 140.0)
+
+        # Tahrirlash sahifasi: mavjud o'lchamlar + yetishmayotganlari uchun bo'sh qatorlar.
+        r = self.client.get(f"/panel/products/{p.pk}/")
+        self.assertEqual(len(r.context["formset"].forms), 6)
+        self.assertContains(r, 'class="sm-place"')
+
+        self.client.post(f"/panel/products/{p.pk}/toggle/")
+        p.refresh_from_db()
+        self.assertFalse(p.is_active)
+
+        r = self.client.get("/panel/products/?status=hidden&q=Panel")
+        self.assertContains(r, "Panel bluzka")
+        self.client.post(f"/panel/products/{p.pk}/delete/")
+        self.assertFalse(Product.objects.filter(pk=p.pk).exists())
+
+    def test_product_validation_errors(self):
+        self.client.force_login(self.staff)
+        r = self._product_post(name="", placement='{"x": 0, "y": 0, "w": 1, "h": 1}')
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Kiyim joylashuvi")
+        self.assertFalse(Product.objects.filter(name="").exists())
+        r = self._product_post(**{"sizes-1-size": "M"})  # M ikki marta
+        self.assertContains(r, "takroriy")
+        self.assertContains(r, '<b>M</b>', count=2)  # yorliq yuborilgan qiymatni ko'rsatadi
+
+    def test_delete_protected_product_hides_it(self):
+        self.client.force_login(self.staff)
+        self.post("mirror:api_order_create", {"items": [{"product": self.p.id, "size": "M"}]})
+        r = self.client.post(f"/panel/products/{self.p.pk}/delete/", follow=True)
+        self.assertContains(r, "buyurtmalarda bor")
+        self.p.refresh_from_db()
+        self.assertFalse(self.p.is_active)
+
+    def test_stock_matrix(self):
+        self.client.force_login(self.staff)
+        r = self.client.get("/panel/stock/")
+        self.assertContains(r, f'name="s-{self.p.pk}-M" value="1"')
+        r = self.client.post("/panel/stock/", {f"s-{self.p.pk}-M": "7", f"s-{self.p.pk}-S": "",
+                                                f"s-{self.p.pk}-L": "3", f"s-{self.p.pk}-XL": "abc"}, follow=True)
+        sizes = {s.size: s.stock for s in self.p.sizes.all()}
+        self.assertEqual(sizes, {"M": 7, "L": 3})   # S olib tashlandi, L qo'shildi, XL noto'g'ri — o'zgarmadi
+        self.assertContains(r, "butun son kiriting")
+        self.assertContains(r, "3 ta o&#x27;zgarish")
+
+    def test_order_detail_status_and_note(self):
+        self.client.force_login(self.staff)
+        self.post("mirror:api_order_create", {"items": [{"product": self.p.id, "size": "M"}]})
+        o = Order.objects.get()
+        self.client.post(f"/panel/orders/{o.pk}/", {"status": "cancelled"})
+        o.refresh_from_db()
+        self.assertEqual(o.status, "cancelled")
+        self.assertEqual(ProductSize.objects.get(product=self.p, size="M").stock, 1)  # omborga qaytdi
+        self.client.post(f"/panel/orders/{o.pk}/", {"note": "Qo'ng'iroq qilindi"})
+        o.refresh_from_db()
+        self.assertEqual(o.note, "Qo'ng'iroq qilindi")
+        r = self.client.get("/panel/orders/?status=cancelled")
+        self.assertContains(r, f"#{o.number}")
+
+    def test_colors_and_devices(self):
+        self.client.force_login(self.staff)
+        self.client.post("/panel/colors/", {"name": "Moviy", "hex": "#2244aa", "sort_order": 3})
+        self.assertTrue(Color.objects.filter(name="Moviy").exists())
+        r = self.client.post("/panel/colors/", {"delete": self.color.pk}, follow=True)
+        self.assertContains(r, "rangida kiyimlar bor")  # kiyimi bor rang o'chmaydi
+        self.client.post("/panel/devices/new/", {"name": "Ikkinchi", "slug": "ikkinchi", "location": "",
+                                                 "city": "toshkent", "idle_seconds": 60, "is_active": "on"})
+        d = MirrorDevice.objects.get(slug="ikkinchi")
+        self.client.post(f"/panel/devices/{d.pk}/", {"delete": "1"})
+        self.assertFalse(MirrorDevice.objects.filter(slug="ikkinchi").exists())
+
+    def test_ai_settings_and_users_superuser_only(self):
+        self.client.force_login(self.admin)
+        self.client.post("/panel/ai/", {"provider": "http", "api_key": "", "model": "",
+                                        "endpoint": "https://gpu.local/tryon", "timeout": 120})
+        self.assertTrue(AISettings.load().enabled)
+        r = self.client.post("/panel/users/new/", {"username": "yangi", "password": "Kuchli-parol-2026",
+                                                   "first_name": "Dilnoza", "last_name": ""})
+        self.assertRedirects(r, "/panel/users/")
+        u = get_user_model().objects.get(username="yangi")
+        self.assertTrue(u.is_staff and not u.is_superuser and u.check_password("Kuchli-parol-2026"))
+        # Zaif parol rad etiladi.
+        r = self.client.post("/panel/users/new/", {"username": "zaif", "password": "123", "first_name": ""})
+        self.assertEqual(r.status_code, 200)
+        # Administrator o'zini o'chira olmaydi.
+        r = self.client.post(f"/panel/users/{self.admin.pk}/", {"first_name": "", "last_name": "",
+                                                                "is_superuser": "on"})
+        self.assertContains(r, "O&#x27;zingizni o&#x27;chira olmaysiz")
+        # Parolni almashtirish.
+        self.client.post(f"/panel/users/{u.pk}/", {"first_name": "Dilnoza", "last_name": "", "is_active": "on",
+                                                   "new_password": "Yana-kuchli-2027"})
+        u.refresh_from_db()
+        self.assertTrue(u.check_password("Yana-kuchli-2027"))
+
+    def test_looks_and_sessions_pages(self):
+        self.client.force_login(self.staff)
+        look = Look.objects.create()
+        look.products.set([self.p])
+        self.assertContains(self.client.get("/panel/looks/"), look.get_absolute_url())
+        self.client.post("/panel/looks/", {"delete": look.pk})
+        self.assertFalse(Look.objects.filter(pk=look.pk).exists())
+        MirrorSession.objects.create(device=self.device)
+        r = self.client.get("/panel/sessions/?device=test")
+        self.assertEqual(len(r.context["page"].object_list), 1)
+
+    def test_products_list_stock_not_multiplied_by_tryons(self):
+        self.client.force_login(self.staff)
+        ProductSize.objects.filter(product=self.p, size="S").update(stock=4)   # M=1, S=4 -> 5
+        s = MirrorSession.objects.create()
+        TryOn.objects.bulk_create([TryOn(session=s, product=self.p) for _ in range(3)])
+        r = self.client.get("/panel/products/")
+        item = r.context["page"].object_list[0]
+        self.assertEqual((item.stock, item.tries), (5, 3))
+        self.assertContains(r, "5 dona")

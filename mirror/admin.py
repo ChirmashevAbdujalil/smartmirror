@@ -6,6 +6,8 @@ from django.utils.html import format_html, format_html_join
 
 from django import forms
 from django.shortcuts import redirect
+
+from .forms import AISettingsForm, ProductForm
 from django.urls import reverse
 
 from .models import (
@@ -40,26 +42,6 @@ class ProductSizeInline(admin.TabularInline):
     def get_extra(self, request, obj=None, **kwargs):
         # Yangi kiyim uchun barcha o'lchamlar qatori tayyor turadi (0 qoldirilganlari saqlanmaydi).
         return len(SIZE_ORDER) if obj is None else 1
-
-
-class ProductForm(forms.ModelForm):
-    class Meta:
-        model = Product
-        fields = "__all__"
-        widgets = {"placement": forms.HiddenInput()}
-
-    def clean_placement(self):
-        try:
-            return normalize_placement(self.cleaned_data.get("placement"))
-        except ValueError as e:
-            raise forms.ValidationError(str(e))
-
-    def clean(self):
-        data = super().clean()
-        # Yashirin maydon xatosi ko'rinmay qolmasin — formaning yuqorisida chiqaramiz.
-        if "placement" in self.errors:
-            self.add_error(None, "Kiyim joylashuvi: " + "; ".join(self.errors["placement"]))
-        return data
 
 
 @admin.register(Product)
@@ -267,13 +249,6 @@ class LookAdmin(admin.ModelAdmin):
     @admin.display(description="Havola")
     def open_link(self, obj):
         return format_html('<a href="{}" target="_blank">Ochish ↗</a>', obj.get_absolute_url())
-
-
-class AISettingsForm(forms.ModelForm):
-    class Meta:
-        model = AISettings
-        fields = "__all__"
-        widgets = {"api_key": forms.PasswordInput(render_value=True, attrs={"autocomplete": "off", "size": 60})}
 
 
 @admin.register(AISettings)

@@ -1,0 +1,6 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Ruxsat yo'q{% endblock %}
+{% block content %}
+<div class="card empty">{% icon "shield" 40 %}<b>Bu bo'limga kirish huquqingiz yo'q</b>Administrator bilan bog'laning.
+  <div class="mt"><a class="btn" href="{% url 'panel:dashboard' %}">Bosh sahifaga</a></div></div>
+{% endblock %}

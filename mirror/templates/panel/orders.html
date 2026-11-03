@@ -1,0 +1,48 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Buyurtmalar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Buyurtmalar</h1><p>Ko'zgudan kelgan buyurtmalar. Doska har 5 soniyada yangilanadi.</p></div>
+  <div class="actions"><button class="btn" type="button" id="sound">{% icon "bell" 16 %}<span>Ovozni yoqish</span></button></div>
+</div>
+
+<section class="board" id="board" data-api="{% url 'mirror:staff_orders_api' %}">
+  {% for key, label in statuses %}{% if key == 'new' or key == 'preparing' or key == 'fitting' %}
+  <div class="col" data-col="{{ key }}"><div class="col-head"><span>{% status_badge key label %}</span><span class="n">0</span></div><div class="col-body"><p class="muted small" style="margin:4px">Yuklanmoqda…</p></div></div>
+  {% endif %}{% endfor %}
+</section>
+
+<div class="page-head mt" style="margin-top:28px">
+  <div><h1 style="font-size:20px">Tarix</h1></div>
+</div>
+<form class="toolbar" method="get">
+  <label class="search">{% icon "search" 16 %}<input type="search" name="q" value="{{ f.q }}" placeholder="Raqam, telefon yoki ism"></label>
+  <div class="seg">
+    <a href="{% qs_with status='' %}" class="{% if not f.status %}on{% endif %}">Barchasi</a>
+    {% for key, label in statuses %}<a href="{% qs_with status=key %}" class="{% if f.status == key %}on{% endif %}">{{ label }}</a>{% endfor %}
+  </div>
+</form>
+<div class="card">
+  {% if page.object_list %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Raqam</th><th>Vaqt</th><th>Kiyimlar</th><th>Mijoz</th><th>Ko'zgu</th><th>Holati</th><th class="r">Jami</th></tr></thead>
+    <tbody>
+    {% for o in page %}
+      <tr>
+        <td><a class="row-link" href="{% url 'panel:order_detail' o.pk %}">#{{ o.number }}</a></td>
+        <td class="tnum">{{ o.created_at|date:"d.m.Y H:i" }}</td>
+        <td>{% for i in o.items.all %}{{ i.product.name }} <span class="muted">({{ i.size }})</span>{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+        <td>{{ o.customer_name|default:"" }} <span class="muted tnum">{{ o.phone|default:"—" }}</span></td>
+        <td class="muted">{{ o.device.name|default:"—" }}</td>
+        <td>{% status_badge o.status o.get_status_display %}</td>
+        <td class="r tnum"><b>{{ o.total|money }}</b></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<div class="empty">{% icon "bag" 40 %}<b>Buyurtma topilmadi</b></div>{% endif %}
+</div>
+{% include "panel/_pager.html" %}
+{% csrf_token %}
+{% endblock %}
+{% block scripts %}{% load static %}<script src="{% static 'mirror/js/panel-orders.js' %}" defer></script>{% endblock %}

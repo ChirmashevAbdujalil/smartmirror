@@ -1,0 +1,72 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Kiyimlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Kiyimlar</h1><p>{{ page.paginator.count }} ta topildi · jami {{ total }} ta</p></div>
+  <div class="actions"><a class="btn primary" href="{% url 'panel:product_add' %}">{% icon "plus" 16 %}Kiyim qo'shish</a></div>
+</div>
+
+<form class="toolbar" method="get">
+  <label class="search">{% icon "search" 16 %}<input type="search" name="q" value="{{ f.q }}" placeholder="Nomi yoki tavsifi bo'yicha qidirish"></label>
+  <select name="kind" data-autosubmit aria-label="Turi"><option value="">Barcha turlar</option>{% for v, l in kinds %}<option value="{{ v }}" {% if f.kind == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <select name="style" data-autosubmit aria-label="Uslub"><option value="">Barcha uslublar</option>{% for v, l in styles %}<option value="{{ v }}" {% if f.style == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <select name="status" data-autosubmit aria-label="Holat">
+    <option value="">Barcha holatlar</option>
+    <option value="active" {% if f.status == 'active' %}selected{% endif %}>Ko'zguda</option>
+    <option value="hidden" {% if f.status == 'hidden' %}selected{% endif %}>Yashirilgan</option>
+    <option value="out" {% if f.status == 'out' %}selected{% endif %}>Omborda yo'q</option>
+    <option value="nophoto" {% if f.status == 'nophoto' %}selected{% endif %}>Rasmsiz</option>
+  </select>
+  <select name="sort" data-autosubmit aria-label="Saralash">
+    <option value="">Tartib bo'yicha</option>
+    <option value="name" {% if f.sort == 'name' %}selected{% endif %}>Nomi</option>
+    <option value="popular" {% if f.sort == 'popular' %}selected{% endif %}>Ommabop</option>
+    <option value="price" {% if f.sort == 'price' %}selected{% endif %}>Arzonroq</option>
+    <option value="-price" {% if f.sort == '-price' %}selected{% endif %}>Qimmatroq</option>
+    <option value="stock" {% if f.sort == 'stock' %}selected{% endif %}>Kam qolgan</option>
+  </select>
+  {% if f %}<a class="btn ghost" href="{% url 'panel:products' %}">Tozalash</a>{% endif %}
+</form>
+
+{% if page.object_list %}
+<div class="products">
+  {% for p in page %}
+  <article class="card pcard {% if not p.is_active %}hidden{% endif %}">
+    <a class="pimg" href="{% url 'panel:product_edit' p.pk %}">
+      {% if p.tryon_image %}<img src="{{ p.tryon_image.url }}" alt="{{ p.name }}" loading="lazy">
+      {% else %}<img data-svg-kind="{{ p.kind }}" data-svg-color="{{ p.color.hex }}" alt="{{ p.name }}">{% endif %}
+      <span class="tags">
+        {% if not p.is_active %}<span class="badge st-off"><i></i>Yashirilgan</span>{% endif %}
+        {% if p.is_new %}<span class="badge st-new"><i></i>Yangi</span>{% endif %}
+      </span>
+    </a>
+    <div class="pbody">
+      <a class="pname" href="{% url 'panel:product_edit' p.pk %}">{{ p.name }}</a>
+      <div class="pmeta"><span class="swatch-dot" style="background:{{ p.color.hex }}"></span>{{ p.get_kind_display }} · {{ p.get_style_display }}</div>
+      <div class="pprice">{{ p.price|money }}</div>
+      <div class="pfoot">
+        <span class="stock-pill {% if not p.stock %}low{% endif %}">{% if p.stock %}{{ p.stock }} dona{% else %}Omborda yo'q{% endif %}</span>
+        <span class="muted small" title="Sinab ko'rilgan">{{ p.tries }} × sinab</span>
+        <form method="post" action="{% url 'panel:product_toggle' p.pk %}">{% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button class="btn sm icon-only ghost" type="submit" title="{% if p.is_active %}Ko'zgudan yashirish{% else %}Ko'zguda ko'rsatish{% endif %}">{% if p.is_active %}{% icon "eye" 16 %}{% else %}{% icon "eyeoff" 16 %}{% endif %}</button>
+        </form>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% include "panel/_pager.html" %}
+{% else %}
+<div class="card empty">{% icon "hanger" 40 %}<b>Kiyim topilmadi</b>Filtrlarni o'zgartiring yoki yangi kiyim qo'shing.</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% load static %}
+<script type="module">
+  // Rasmsiz kiyimlar uchun ko'zgudagi avtomatik tasvir.
+  import { garmentSVG } from "{% static 'mirror/js/garments.js' %}";
+  document.querySelectorAll("img[data-svg-kind]").forEach((img) => {
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(garmentSVG(img.dataset.svgKind, img.dataset.svgColor));
+  });
+</script>
+{% endblock %}

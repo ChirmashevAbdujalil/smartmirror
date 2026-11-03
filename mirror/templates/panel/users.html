@@ -1,0 +1,25 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Xodimlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Xodimlar</h1><p>Panelga kira oladigan xodimlar. Konsultantlar kiyimlar, ombor va buyurtmalar bilan ishlaydi; administrator — hammasi bilan.</p></div>
+  <div class="actions"><a class="btn primary" href="{% url 'panel:user_add' %}">{% icon "plus" 16 %}Xodim qo'shish</a></div>
+</div>
+<div class="card">
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Xodim</th><th>Roli</th><th>Holati</th><th>Oxirgi kirish</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+    <tr>
+      <td><div style="display:flex;gap:10px;align-items:center"><span class="avatar" style="background:var(--accent-soft);color:var(--accent-ink)">{{ u|initials }}</span>
+        <div><b>{{ u.get_full_name|default:u.username }}</b><div class="muted small">{{ u.username }}{% if u == request.user %} · siz{% endif %}</div></div></div></td>
+      <td>{% if u.is_superuser %}Administrator{% else %}Konsultant{% endif %}</td>
+      <td>{% if u.is_active %}<span class="badge st-on"><i></i>Faol</span>{% else %}<span class="badge st-off"><i></i>O'chirilgan</span>{% endif %}</td>
+      <td class="muted">{{ u.last_login|ago }}</td>
+      <td class="r"><a class="btn sm" href="{% url 'panel:user_edit' u.pk %}">{% icon "edit" 14 %}Tahrirlash</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div>
+{% endblock %}

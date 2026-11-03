@@ -1,0 +1,72 @@
+{% load static panel_tags %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Boshqaruv{% endblock %} — Smart Mirror</title>
+  <script>
+    // Mavzu (yorug'/qorong'i) — sahifa chizilishidan oldin, miltillamasligi uchun.
+    try { const t = localStorage.getItem("sm-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'mirror/css/panel.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'panel:dashboard' %}"><span class="brand-logo">{% icon "mirror" 20 %}</span><span><b>Smart Mirror</b></span></a>
+    <button type="button" id="nav-toggle" aria-label="Menyu">{% icon "menu" 22 %}</button>
+  </header>
+  <div class="app">
+    <aside class="side" id="side">
+      <a class="brand" href="{% url 'panel:dashboard' %}">
+        <span class="brand-logo">{% icon "mirror" 20 %}</span>
+        <span><b>Smart Mirror</b><span>Boshqaruv paneli</span></span>
+      </a>
+      {% new_orders_count as new_orders %}
+      <nav class="nav">
+        <a href="{% url 'panel:dashboard' %}" class="{% if nav == 'dashboard' %}active{% endif %}">{% icon "home" %}Bosh sahifa</a>
+        <div class="nav-label">Savdo</div>
+        <a href="{% url 'panel:orders' %}" class="{% if nav == 'orders' %}active{% endif %}">{% icon "bag" %}Buyurtmalar{% if new_orders %}<span class="count">{{ new_orders }}</span>{% endif %}</a>
+        <a href="{% url 'panel:products' %}" class="{% if nav == 'products' %}active{% endif %}">{% icon "hanger" %}Kiyimlar</a>
+        <a href="{% url 'panel:stock' %}" class="{% if nav == 'stock' %}active{% endif %}">{% icon "box" %}Ombor</a>
+        <a href="{% url 'panel:stats' %}" class="{% if nav == 'stats' %}active{% endif %}">{% icon "chart" %}Statistika</a>
+        <div class="nav-label">Ko'zgu</div>
+        <a href="{% url 'panel:looks' %}" class="{% if nav == 'looks' %}active{% endif %}">{% icon "image" %}Obrazlar</a>
+        <a href="{% url 'panel:sessions' %}" class="{% if nav == 'sessions' %}active{% endif %}">{% icon "clock" %}Sessiyalar</a>
+        <a href="{% url 'panel:devices' %}" class="{% if nav == 'devices' %}active{% endif %}">{% icon "mirror" %}Ko'zgular</a>
+        <a href="{% url 'panel:colors' %}" class="{% if nav == 'colors' %}active{% endif %}">{% icon "palette" %}Ranglar</a>
+        {% if request.user.is_superuser %}
+        <div class="nav-label">Sozlamalar</div>
+        <a href="{% url 'panel:ai' %}" class="{% if nav == 'ai' %}active{% endif %}">{% icon "sparkles" %}AI sozlamalari</a>
+        <a href="{% url 'panel:users' %}" class="{% if nav == 'users' %}active{% endif %}">{% icon "users" %}Xodimlar</a>
+        {% endif %}
+      </nav>
+      <div class="side-foot">
+        <a class="side-btn" href="{% url 'mirror:home' %}" target="_blank">{% icon "external" %}Ko'zguni ochish</a>
+        <button type="button" class="side-btn" id="theme-toggle">{% icon "moon" 18 "i-moon" %}{% icon "sun" 18 "i-sun" %}<span>Mavzu</span></button>
+        <div class="me">
+          <span class="avatar">{{ request.user|initials }}</span>
+          <div style="min-width:0"><b>{{ request.user.get_full_name|default:request.user.username }}</b><span>{% if request.user.is_superuser %}Administrator{% else %}Konsultant{% endif %}</span></div>
+        </div>
+        <form method="post" action="{% url 'panel:logout' %}">{% csrf_token %}
+          <button class="side-btn" type="submit">{% icon "logout" %}Chiqish</button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="main">
+      {% if messages %}
+      <div class="messages">
+        {% for m in messages %}<div class="msg {{ m.tags }}">{% if m.tags == 'success' %}{% icon "check" %}{% else %}{% icon "alert" %}{% endif %}{{ m }}</div>{% endfor %}
+      </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script src="{% static 'mirror/js/panel.js' %}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

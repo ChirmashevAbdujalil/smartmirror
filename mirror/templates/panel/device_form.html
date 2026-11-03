@@ -1,0 +1,30 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}{% if device %}{{ device.name }}{% else %}Yangi ko'zgu{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <div class="crumbs"><a href="{% url 'panel:devices' %}">{% icon "back" 14 %}Ko'zgular</a></div>
+  <h1>{% if device %}{{ device.name }}{% else %}Yangi ko'zgu{% endif %}</h1>
+</div>
+{% if device %}<div class="actions"><a class="btn" href="{{ device.get_absolute_url }}" target="_blank">{% icon "external" 16 %}Ko'zguni ochish</a></div>{% endif %}
+</div>
+<div class="card" style="max-width:760px">
+  <form method="post">{% csrf_token %}
+    <section class="form-section">
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+      <div class="fields">
+        {% include "panel/_field.html" with field=form.name %}
+        {% include "panel/_field.html" with field=form.slug %}
+        {% include "panel/_field.html" with field=form.location %}
+        {% include "panel/_field.html" with field=form.city %}
+        {% include "panel/_field.html" with field=form.idle_seconds %}
+        {% include "panel/_field.html" with field=form.is_active %}
+      </div>
+    </section>
+    <div class="form-foot">
+      <div class="actions"><button class="btn primary" type="submit">{% icon "check" 16 %}Saqlash</button>
+        <a class="btn ghost" href="{% url 'panel:devices' %}">Bekor qilish</a></div>
+      {% if device %}<button class="btn danger" type="submit" name="delete" value="1" formnovalidate onclick="return confirm('Ko\'zgu o\'chirilsinmi? Sessiyalar statistikasi saqlanadi.')">{% icon "trash" 16 %}O'chirish</button>{% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

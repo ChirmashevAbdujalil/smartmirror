@@ -1,0 +1,28 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Ko'zgular{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Ko'zgular</h1><p>Do'kondagi aqlli ko'zgular. Har biri o'z manzilida ochiladi: <code>/mirror/&lt;slug&gt;/</code></p></div>
+  <div class="actions"><a class="btn primary" href="{% url 'panel:device_add' %}">{% icon "plus" 16 %}Ko'zgu qo'shish</a></div>
+</div>
+<div class="card">
+  {% if devices %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Ko'zgu</th><th>Holat</th><th>Joylashuvi</th><th>Shahar</th><th class="r">Bugun</th><th class="r">Jami tashrif</th><th></th></tr></thead>
+    <tbody>
+    {% for d in devices %}
+    <tr>
+      <td><a class="row-link" href="{% url 'panel:device_edit' d.pk %}">{{ d.name }}</a><div class="muted small">/mirror/{{ d.slug }}/</div></td>
+      <td>{% if not d.is_active %}<span class="badge st-off"><i></i>O'chirilgan</span>{% elif d.last|online %}<span class="badge st-on"><i></i>Onlayn</span>{% else %}<span class="badge st-cancelled"><i></i>{{ d.last|ago }}</span>{% endif %}</td>
+      <td>{{ d.location|default:"—" }}</td>
+      <td>{{ d.get_city_display }}</td>
+      <td class="r tnum">{{ d.today }}</td>
+      <td class="r tnum">{{ d.total }}</td>
+      <td class="r"><a class="btn sm" href="{{ d.get_absolute_url }}" target="_blank">{% icon "external" 14 %}Ochish</a></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<div class="empty">{% icon "mirror" 40 %}<b>Ko'zgu qo'shilmagan</b></div>{% endif %}
+</div>
+{% endblock %}

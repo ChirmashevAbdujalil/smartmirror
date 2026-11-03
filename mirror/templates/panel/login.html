@@ -1,0 +1,39 @@
+{% load static panel_tags %}<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kirish — Smart Mirror</title>
+  <script>try { const t = localStorage.getItem("sm-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'mirror/css/panel.css' %}">
+</head>
+<body>
+  <div class="login">
+    <section class="login-art">
+      <div class="brand"><span class="brand-logo">{% icon "mirror" 20 %}</span><span><b>Smart Mirror</b><span>Boshqaruv paneli</span></span></div>
+      <div>
+        <h2>O'zingizning uslubingiz — endi <b>yanada oson!</b></h2>
+        <p>Kiyimlar, ombor, buyurtmalar va ko'zgu statistikasi — barchasi bir joyda.</p>
+      </div>
+      <p class="small">© Smart Mirror</p>
+    </section>
+    <section class="login-form">
+      <form method="post" class="login-box">
+        {% csrf_token %}
+        <div>
+          <h1>Xush kelibsiz</h1>
+          <p class="muted">Davom etish uchun tizimga kiring.</p>
+        </div>
+        {% if form.non_field_errors %}<div class="form-errors">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>{% endif %}
+        <div class="field"><label for="id_username">Login</label>{{ form.username }}</div>
+        <div class="field"><label for="id_password">Parol</label>{{ form.password }}</div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="btn primary" type="submit" style="justify-content:center;padding:12px">Kirish</button>
+      </form>
+    </section>
+  </div>
+</body>
+</html>

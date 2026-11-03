@@ -1,0 +1,55 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Statistika{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Statistika</h1><p>Ko'zgu qanday ishlayapti va qaysi kiyimlar sotilyapti.</p></div>
+  <div class="seg">
+    <a href="?days=1" class="{% if days == 1 %}on{% endif %}">Bugun</a>
+    <a href="?days=7" class="{% if days == 7 %}on{% endif %}">7 kun</a>
+    <a href="?days=30" class="{% if days == 30 %}on{% endif %}">30 kun</a>
+    <a href="?days=90" class="{% if days == 90 %}on{% endif %}">90 kun</a>
+  </div>
+</div>
+<section class="kpis">
+  {% for label, value in cards %}<div class="card kpi"><div class="kpi-top"><span>{{ label }}</span></div><div class="kpi-value">{{ value }}</div></div>{% endfor %}
+</section>
+
+<div class="grid g-21">
+  <div class="card">
+    <div class="card-head"><div><h2>Kiyimlar: sinab ko'rish → sotuv</h2><div class="sub">Ko'p sinab ko'rilib, kam sotilayotgan kiyim — narx yoki o'lcham muammosi bo'lishi mumkin</div></div></div>
+    {% if rows %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Kiyim</th><th>Sinab ko'rildi</th><th class="r">Buyurtma</th><th class="r">Sotildi</th><th class="r">Konversiya</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a class="row-link" href="{% url 'panel:product_edit' r.p.pk %}">{{ r.p.name }}</a></td>
+        <td style="min-width:180px"><div style="display:flex;align-items:center;gap:10px"><div class="rank-track" style="flex:1;margin:0"><div class="rank-bar" style="width:{{ r.bar }}%"></div></div><b class="tnum">{{ r.tries }}</b></div></td>
+        <td class="r tnum">{{ r.ordered }}</td>
+        <td class="r tnum">{{ r.sold }}</td>
+        <td class="r tnum"><b>{{ r.conv }}%</b></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}<div class="empty">{% icon "chart" 40 %}<b>Bu davrda ma'lumot yo'q</b></div>{% endif %}
+  </div>
+  <div class="stack">
+    <div class="card">
+      <div class="card-head"><h2>Buyurtmalar holati</h2></div>
+      <div class="card-body"><div class="list">
+        {% for label, n in by_status %}<div class="list-row"><div class="grow">{{ label }}</div><b class="tnum">{{ n }}</b></div>{% endfor %}
+      </div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Omborda tugayotganlar</h2><a class="btn sm ghost" href="{% url 'panel:stock' %}">Ombor</a></div>
+      <div class="card-body">
+        {% if low_stock %}<div class="list">{% for s in low_stock %}
+          <a class="list-row" href="{% url 'panel:product_edit' s.product.pk %}"><div class="grow"><div class="title">{{ s.product.name }}</div><div class="meta">O'lcham {{ s.size }}</div></div>
+          {% if s.stock == 0 %}<span class="badge st-low"><i></i>Tugagan</span>{% else %}<span class="badge st-preparing"><i></i>{{ s.stock }} dona</span>{% endif %}</a>
+        {% endfor %}</div>{% else %}<div class="empty">{% icon "check" 32 %}<b>Hammasi yetarli</b></div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

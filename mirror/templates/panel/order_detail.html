@@ -1,0 +1,47 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}#{{ order.number }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="{% url 'panel:orders' %}">{% icon "back" 14 %}Buyurtmalar</a></div>
+    <h1>Buyurtma #{{ order.number }} {% status_badge order.status order.get_status_display %}</h1>
+    <p>{{ order.created_at|date:"d.m.Y H:i" }} · {{ order.created_at|ago }}{% if order.device %} · {{ order.device.name }}{% endif %}</p>
+  </div>
+</div>
+<div class="form-layout">
+  <div class="card">
+    <div class="card-head"><h2>Kiyimlar</h2></div>
+    <div class="card-body"><div class="list">
+      {% for i in items %}
+      <div class="list-row">
+        {% if i.product.tryon_image %}<img class="thumb lg" src="{{ i.product.tryon_image.url }}" alt="">{% else %}<span class="thumb lg sw" style="background:{{ i.product.color.hex }}"></span>{% endif %}
+        <div class="grow"><a class="title row-link" href="{% url 'panel:product_edit' i.product.pk %}">{{ i.product.name }}</a>
+          <div class="meta">{{ i.product.get_kind_display }} · {{ i.product.color.name }} · {{ i.quantity }} dona</div></div>
+        <span class="size-tag" style="margin:0">{{ i.size }}</span>
+        <b class="tnum" style="min-width:110px;text-align:right">{{ i.price|money }}</b>
+      </div>
+      {% endfor %}
+      <div class="list-row"><div class="grow"><b>Jami</b></div><b class="tnum" style="font-size:18px">{{ order.total|money }}</b></div>
+    </div></div>
+  </div>
+  <aside class="stack">
+    <div class="card card-pad side-card">
+      <h2 style="font-size:15px;margin-bottom:12px">Holatni o'zgartirish</h2>
+      <form method="post" class="stack" style="gap:8px">{% csrf_token %}
+        {% for key, label in statuses %}
+        <button class="btn {% if order.status == key %}primary{% endif %}" type="submit" name="status" value="{{ key }}" {% if order.status == key %}disabled{% endif %}>{{ label }}</button>
+        {% endfor %}
+      </form>
+      <p class="muted small mt">"Bekor qilindi" — kiyimlar omborga qaytariladi. Qayta faollashtirilsa, yana zaxiralanadi.</p>
+    </div>
+    <div class="card card-pad side-card">
+      <h2 style="font-size:15px;margin-bottom:12px">Mijoz</h2>
+      <dl><dt>Ismi</dt><dd>{{ order.customer_name|default:"—" }}</dd><dt>Telefon</dt><dd>{% if order.phone %}<a href="tel:{{ order.phone }}">{{ order.phone }}</a>{% else %}—{% endif %}</dd></dl>
+      <form method="post" class="stack mt" style="gap:8px">{% csrf_token %}
+        <div class="field"><label for="note">Izoh</label><textarea id="note" name="note" rows="2" maxlength="200">{{ order.note }}</textarea></div>
+        <button class="btn sm" type="submit">Izohni saqlash</button>
+      </form>
+    </div>
+  </aside>
+</div>
+{% endblock %}

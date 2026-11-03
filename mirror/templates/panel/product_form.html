@@ -1,0 +1,127 @@
+{% extends "panel/base.html" %}{% load panel_tags static %}
+{% block title %}{% if is_new %}Yangi kiyim{% else %}{{ product.name }}{% endif %}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'mirror/css/admin-place.css' %}">{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <div class="crumbs"><a href="{% url 'panel:products' %}">{% icon "back" 14 %}Kiyimlar</a></div>
+    <h1>{% if is_new %}Yangi kiyim{% else %}{{ product.name }}{% endif %}</h1>
+    {% if not is_new %}<p>{{ product.get_kind_display }} · {{ product.price|money }} · {% if product.is_active %}ko'zguda ko'rsatilmoqda{% else %}yashirilgan{% endif %}</p>{% endif %}
+  </div>
+  {% if not is_new %}
+  <div class="actions">
+    <form method="post" action="{% url 'panel:product_toggle' product.pk %}">{% csrf_token %}
+      <input type="hidden" name="next" value="{% url 'panel:product_edit' product.pk %}">
+      <button class="btn" type="submit">{% if product.is_active %}{% icon "eyeoff" 16 %}Ko'zgudan yashirish{% else %}{% icon "eye" 16 %}Ko'zguda ko'rsatish{% endif %}</button>
+    </form>
+    <a class="btn danger" href="{% url 'panel:product_delete' product.pk %}">{% icon "trash" 16 %}O'chirish</a>
+  </div>
+  {% endif %}
+</div>
+
+<form method="post" enctype="multipart/form-data" id="product-form">
+  {% csrf_token %}
+  {% if form.non_field_errors or formset.non_form_errors %}
+  <div class="form-errors"><ul>{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}{% for e in formset.non_form_errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+  {% endif %}
+
+  <div class="form-layout">
+    <div class="card">
+      <section class="form-section">
+        <h2>Asosiy ma'lumotlar</h2>
+        <p>Xaridor ko'zguda shu ma'lumotlarni ko'radi.</p>
+        <div class="fields">
+          {% include "panel/_field.html" with field=form.name cls="wide" %}
+          {% include "panel/_field.html" with field=form.kind %}
+          {% include "panel/_field.html" with field=form.style %}
+          {% include "panel/_field.html" with field=form.color %}
+          {% include "panel/_field.html" with field=form.price %}
+          {% include "panel/_field.html" with field=form.description cls="wide" %}
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h2>Rasm va tanadagi joyi</h2>
+        <p>Rasm tanlanishi bilan fon olib tashlanadi. So'ng kiyimni manekin ustida kerakli tana qismiga joylang — ko'zguda aynan shu joyga kiydiriladi.</p>
+        <div class="fields">
+          <div class="field wide{% if form.photo.errors %} has-error{% endif %}">
+            <label for="id_photo">{{ form.photo.label }}</label>
+            <div class="file-field">
+              {% if product.photo %}
+              <div class="current-file">
+                {% if product.tryon_image %}<img class="thumb" src="{{ product.tryon_image.url }}" alt="">{% endif %}
+                <div class="grow"><b>Joriy rasm</b><a href="{{ product.photo.url }}" target="_blank">{{ product.photo.name|cut:"products/original/" }}</a></div>
+                <label class="del"><input type="checkbox" name="photo-clear" id="photo-clear_id"> Rasmni o'chirish</label>
+              </div>
+              {% endif %}
+              <input type="file" name="photo" accept="image/*" id="id_photo">
+            </div>
+            <span class="help">{{ form.photo.help_text }}</span>
+            {% if form.photo.errors %}<div class="errors">{{ form.photo.errors|join:" " }}</div>{% endif %}
+          </div>
+          {% include "panel/_field.html" with field=form.remove_background cls="wide" %}
+          <div class="field wide">
+            <div class="sm-place" data-image="{% if product.tryon_image %}{{ product.tryon_image.url }}{% endif %}"
+                 data-kind="{{ product.kind|default:'bluzka' }}" data-color="{{ product.color.hex|default:'#e8a3b5' }}"
+                 data-limits='{{ limits_json }}' data-preview-url="{% url 'mirror:tryon_preview' %}" data-product="{{ product.pk|default:'' }}"></div>
+          </div>
+        </div>
+        {{ form.placement }}
+      </section>
+
+      <section class="form-section">
+        <h2>O'lchamlar va ombor</h2>
+        <p>Har bir o'lcham bo'yicha omborda nechta borligini kiriting. 0 qoldirilgan yangi o'lchamlar saqlanmaydi.</p>
+        {{ formset.management_form }}
+        <div class="sizes-grid">
+          {% for f in formset %}
+          <div class="size-box">
+            {{ f.id }}{{ f.size.as_hidden }}
+            <b>{{ f.size.value }}</b>
+            {{ f.stock }}
+            {% if f.instance.pk %}<label class="del">{{ f.DELETE }} olib tashlash</label>{% endif %}
+            {% if f.errors %}<div class="errors small">{% for e in f.errors.values %}{{ e|join:" " }}{% endfor %}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <div class="form-foot">
+        <div class="actions">
+          <button class="btn primary" type="submit">{% icon "check" 16 %}Saqlash</button>
+          <button class="btn" type="submit" name="_add_another">Saqlab, yana qo'shish</button>
+        </div>
+        <a class="btn ghost" href="{% url 'panel:products' %}">Bekor qilish</a>
+      </div>
+    </div>
+
+    <aside class="stack">
+      <div class="card card-pad side-card">
+        <h2 style="font-size:15px;margin-bottom:12px">Ko'zgudagi holati</h2>
+        <div class="stack" style="gap:10px">
+          {% include "panel/_field.html" with field=form.is_active %}
+          {% include "panel/_field.html" with field=form.is_new %}
+          {% include "panel/_field.html" with field=form.sort_order %}
+        </div>
+      </div>
+      {% if not is_new %}
+      <div class="card card-pad side-card">
+        <h2 style="font-size:15px;margin-bottom:12px">Ko'rsatkichlar</h2>
+        <dl>
+          <dt>Sinab ko'rilgan</dt><dd>{{ tries_count }} marta</dd>
+          <dt>Buyurtmalarda</dt><dd>{{ orders_count }} ta</dd>
+          <dt>Qo'shilgan</dt><dd>{{ product.created_at|date:"d.m.Y" }}</dd>
+          <dt>Yangilangan</dt><dd>{{ product.updated_at|date:"d.m.Y H:i" }}</dd>
+        </dl>
+        {% if product.photo %}
+        <form method="post" action="{% url 'panel:product_reprocess' product.pk %}" class="mt">{% csrf_token %}
+          <button class="btn sm" type="submit">{% icon "refresh" 14 %}Rasmni qayta ishlash</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </aside>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'mirror/js/admin-place.js' %}"></script>{% endblock %}

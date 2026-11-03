@@ -1,0 +1,23 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Obrazlar{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Saqlangan obrazlar</h1><p>Xaridorlar QR orqali telefoniga olgan obrazlar — {{ page.paginator.count }} ta.</p></div></div>
+{% if page.object_list %}
+<div class="gallery">
+  {% for l in page %}
+  <div class="card gcard">
+    {% if l.snapshot %}<img class="g" src="{{ l.snapshot.url }}" alt="Obraz surati" loading="lazy">{% else %}<div class="g empty" style="aspect-ratio:3/4;display:grid;place-items:center">{% icon "image" 32 %}</div>{% endif %}
+    <div class="gbody">
+      <b style="font-size:13px">{% for p in l.products.all %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</b>
+      <span class="muted">{{ l.created_at|date:"d.m.Y H:i" }}</span>
+      <div class="actions">
+        <a class="btn sm" href="{{ l.get_absolute_url }}" target="_blank">{% icon "external" 14 %}Ochish</a>
+        <form method="post" data-confirm="Obraz o'chirilsinmi? QR havola ishlamay qoladi.">{% csrf_token %}<button class="btn sm ghost danger icon-only" name="delete" value="{{ l.pk }}" title="O'chirish">{% icon "trash" 14 %}</button></form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% include "panel/_pager.html" %}
+{% else %}<div class="card empty">{% icon "image" 40 %}<b>Hali obraz saqlanmagan</b>Xaridor ko'zguda "♡ Saqlash" bossa, shu yerda paydo bo'ladi.</div>{% endif %}
+{% endblock %}

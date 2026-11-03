@@ -1,0 +1,132 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Bosh sahifa{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Salom, {{ request.user.first_name|default:request.user.username }} 👋</h1>
+    <p>{% now "j-E, l" %} · bugungi holat va oxirgi {{ chart_days }} kun</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{% url 'panel:orders' %}">{% icon "bag" 16 %}Buyurtmalar{% if new_count %} · {{ new_count }} yangi{% endif %}</a>
+    <a class="btn primary" href="{% url 'panel:product_add' %}">{% icon "plus" 16 %}Kiyim qo'shish</a>
+  </div>
+</div>
+
+<section class="kpis">
+  {% for k in kpis %}
+  <div class="card kpi">
+    <div class="kpi-top"><span>{{ k.label }}</span><span class="kpi-ic">{% icon k.icon 18 %}</span></div>
+    <div class="kpi-value">{{ k.value }}</div>
+    <div class="kpi-foot">
+      {% if k.delta is None %}<span class="delta flat">—</span>
+      {% elif k.delta > 0 %}<span class="delta up">{% icon "up" 12 %}{{ k.delta }}%</span>
+      {% elif k.delta < 0 %}<span class="delta down">{% icon "down" 12 %}{{ k.delta|abs_val }}%</span>
+      {% else %}<span class="delta flat">0%</span>{% endif %}
+      kechagiga nisbatan
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<section class="grid g-2">
+  <div class="card">
+    <div class="card-head"><div><h2>Sotuv, so'm</h2><div class="sub">Oxirgi {{ chart_days }} kun · faqat "Sotildi" holatidagi buyurtmalar</div></div></div>
+    <div class="chart-hero"><b>{{ revenue_period|money }}</b><span class="muted">jami</span></div>
+    <div class="card-body"><div class="chart" data-chart="revenue-data" data-format="money" data-label="Sotuv"></div></div>
+    <details class="table-view"><summary>Jadval ko'rinishi</summary>
+      <table class="table"><thead><tr><th>Sana</th><th class="r">Sotuv</th></tr></thead><tbody>
+      {% for d in revenue_daily %}<tr><td>{{ d.date }}</td><td class="r tnum">{{ d.value|money }}</td></tr>{% endfor %}
+      </tbody></table></details>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Sinab ko'rishlar</h2><div class="sub">Oxirgi {{ chart_days }} kun · ko'zguda kiyib ko'rilgan kiyimlar soni</div></div></div>
+    <div class="chart-hero"><b>{{ tries_period|num }}</b><span class="muted">jami</span></div>
+    <div class="card-body"><div class="chart" data-chart="tries-data" data-format="int" data-label="Sinab ko'rishlar"></div></div>
+    <details class="table-view"><summary>Jadval ko'rinishi</summary>
+      <table class="table"><thead><tr><th>Sana</th><th class="r">Soni</th></tr></thead><tbody>
+      {% for d in tries_daily %}<tr><td>{{ d.date }}</td><td class="r tnum">{{ d.value }}</td></tr>{% endfor %}
+      </tbody></table></details>
+  </div>
+</section>
+
+<section class="grid g-21 mt">
+  <div class="card">
+    <div class="card-head"><div><h2>Faol buyurtmalar</h2><div class="sub">{{ active_count }} ta jarayonda</div></div>
+      <a class="btn sm" href="{% url 'panel:orders' %}">Doskani ochish</a></div>
+    <div class="card-body">
+      {% if active_orders %}<div class="list">
+        {% for o in active_orders %}
+        <a class="list-row" href="{% url 'panel:order_detail' o.pk %}">
+          <b style="font-size:18px;min-width:56px">#{{ o.number }}</b>
+          <div class="grow"><div class="title">{% for i in o.items.all %}{{ i.product.name }} ({{ i.size }}){% if not forloop.last %}, {% endif %}{% endfor %}</div>
+            <div class="meta">{{ o.created_at|ago }}{% if o.phone %} · {{ o.phone }}{% endif %}{% if o.device %} · {{ o.device.name }}{% endif %}</div></div>
+          {% status_badge o.status o.get_status_display %}
+        </a>
+        {% endfor %}
+      </div>{% else %}<div class="empty">{% icon "bag" 36 %}<b>Faol buyurtma yo'q</b>Ko'zgudan buyurtma kelsa, shu yerda ko'rinadi.</div>{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Eng ko'p sinab ko'rilgan</h2><div class="sub">Oxirgi 30 kun</div></div>
+      <a class="btn sm ghost" href="{% url 'panel:stats' %}">Batafsil</a></div>
+    <div class="card-body">
+      {% if top %}<div class="rank">
+        {% for p in top %}
+        <a class="rank-row" href="{% url 'panel:product_edit' p.pk %}" title="{{ p.name }}: {{ p.tries }} marta">
+          {% if p.tryon_image %}<img class="thumb" src="{{ p.tryon_image.url }}" alt="">{% else %}<span class="thumb sw" style="background:{{ p.color.hex }}"></span>{% endif %}
+          <div style="min-width:0"><div class="name">{{ p.name }}</div><div class="rank-track"><div class="rank-bar" style="width:{{ p.tries|pct_of:top_max }}%"></div></div></div>
+          <span class="val">{{ p.tries }}</span>
+        </a>
+        {% endfor %}
+      </div>{% else %}<div class="empty">{% icon "hanger" 36 %}<b>Hali ma'lumot yo'q</b>Xaridorlar kiyim sinab ko'rgach paydo bo'ladi.</div>{% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="grid g-3 mt" style="align-items:start">
+  <div class="card">
+    <div class="card-head"><div><h2>Omborda tugayotganlar</h2><div class="sub">{{ low_stock_count }} ta o'lcham · 1 dona yoki kam</div></div>
+      <a class="btn sm ghost" href="{% url 'panel:stock' %}">Ombor</a></div>
+    <div class="card-body">
+      {% if low_stock %}<div class="list">
+        {% for s in low_stock %}
+        <a class="list-row" href="{% url 'panel:product_edit' s.product.pk %}">
+          <div class="grow"><div class="title">{{ s.product.name }}</div><div class="meta">O'lcham {{ s.size }}</div></div>
+          {% if s.stock == 0 %}<span class="badge st-low"><i></i>Tugagan</span>{% else %}<span class="badge st-preparing"><i></i>{{ s.stock }} dona</span>{% endif %}
+        </a>
+        {% endfor %}
+        {% if low_stock_count > 5 %}<a class="list-row muted" href="{% url 'panel:stock' %}">Yana {{ low_stock_count|add:"-5" }} ta — omborni ochish →</a>{% endif %}
+      </div>{% else %}<div class="empty">{% icon "check" 36 %}<b>Hammasi yetarli</b></div>{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Ko'zgular</h2><div class="sub">Oxirgi 3 daqiqada faollik — onlayn</div></div>
+      <a class="btn sm ghost" href="{% url 'panel:devices' %}">Barchasi</a></div>
+    <div class="card-body"><div class="list">
+      {% for d in devices %}
+      <div class="list-row">
+        <span class="dot-online {% if d.last|online %}on{% endif %}" title="{% if d.last|online %}Onlayn{% else %}Faol emas{% endif %}"></span>
+        <div class="grow"><div class="title">{{ d.name }}</div><div class="meta">{% if d.last|online %}Onlayn{% else %}Oxirgi faollik: {{ d.last|ago }}{% endif %}{% if not d.is_active %} · o'chirilgan{% endif %}</div></div>
+        <a class="btn sm icon-only ghost" href="{{ d.get_absolute_url }}" target="_blank" title="Ochish">{% icon "external" 16 %}</a>
+      </div>
+      {% empty %}<div class="empty">{% icon "mirror" 36 %}<b>Ko'zgu qo'shilmagan</b><a href="{% url 'panel:device_add' %}">Qo'shish</a></div>{% endfor %}
+    </div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Fotorealistik AI</h2><div class="sub">"✨ AI foto" tugmasi uchun xizmat</div></div></div>
+    <div class="card-body">
+      <div class="list">
+        <div class="list-row"><div class="grow"><div class="title">{{ ai.get_provider_display }}</div><div class="meta">Xizmat</div></div>
+          {% if ai.enabled %}<span class="badge st-on"><i></i>Yoqilgan</span>{% else %}<span class="badge st-off"><i></i>O'chiq</span>{% endif %}</div>
+        <div class="list-row"><div class="grow"><div class="title">{{ ai_jobs_today }}</div><div class="meta">Bugun yaratilgan AI suratlar</div></div></div>
+        <div class="list-row"><div class="grow"><div class="title">{{ product_count }}</div><div class="meta">Ko'zguda ko'rsatilayotgan kiyimlar</div></div></div>
+      </div>
+      {% if request.user.is_superuser %}<a class="btn sm mt" href="{% url 'panel:ai' %}">{% icon "sparkles" 14 %}Sozlash</a>{% endif %}
+    </div>
+  </div>
+</section>
+
+{{ revenue_daily|json_script:"revenue-data" }}
+{{ tries_daily|json_script:"tries-data" }}
+{% endblock %}
+{% block scripts %}{% load static %}<script type="module" src="{% static 'mirror/js/panel-charts.js' %}"></script>{% endblock %}

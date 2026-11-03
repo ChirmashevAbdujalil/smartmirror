@@ -1,0 +1,45 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Ranglar{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Ranglar</h1><p>Ko'zgudagi "Ranglar" filtri va tavsiyalar shu ro'yxatdan foydalanadi.</p></div></div>
+<div class="form-layout">
+  <div class="card">
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th></th><th>Nomi</th><th>Kod</th><th>Neytral</th><th class="r">Kiyimlar</th><th class="r">Tartib</th><th></th></tr></thead>
+      <tbody>
+      {% for c in colors %}
+      <tr>
+        <td><span class="swatch-dot" style="background:{{ c.hex }};width:22px;height:22px"></span></td>
+        <td><b>{{ c.name }}</b></td>
+        <td class="muted tnum">{{ c.hex }}</td>
+        <td>{% if c.is_neutral %}{% icon "check" 16 %}{% endif %}</td>
+        <td class="r tnum">{{ c.n }}</td>
+        <td class="r tnum">{{ c.sort_order }}</td>
+        <td class="r"><div class="actions" style="justify-content:flex-end">
+          <a class="btn sm icon-only ghost" href="?edit={{ c.pk }}" title="Tahrirlash">{% icon "edit" 16 %}</a>
+          <form method="post" data-confirm="&quot;{{ c.name }}&quot; rangi o'chirilsinmi?">{% csrf_token %}<button class="btn sm icon-only ghost danger" name="delete" value="{{ c.pk }}" title="O'chirish">{% icon "trash" 16 %}</button></form>
+        </div></td>
+      </tr>
+      {% empty %}<tr><td colspan="7"><div class="empty">Rang yo'q</div></td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  <div class="card">
+    <form method="post" class="form-section">{% csrf_token %}
+      <h2>{% if editing %}"{{ editing.name }}" ni tahrirlash{% else %}Yangi rang{% endif %}</h2>
+      <p>Neytral ranglar (qora, oq, bej, kulrang) har qanday rang bilan mos keladi.</p>
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+      <div class="stack" style="gap:12px">
+        {% include "panel/_field.html" with field=form.name %}
+        {% include "panel/_field.html" with field=form.hex %}
+        {% include "panel/_field.html" with field=form.is_neutral %}
+        {% include "panel/_field.html" with field=form.sort_order %}
+      </div>
+      <div class="actions mt">
+        <button class="btn primary" type="submit">{% icon "check" 16 %}Saqlash</button>
+        {% if editing %}<a class="btn ghost" href="{% url 'panel:colors' %}">Bekor qilish</a>{% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

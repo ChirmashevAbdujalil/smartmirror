@@ -1,0 +1,29 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Sessiyalar{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Sessiyalar</h1><p>Har bir xaridorning ko'zgu oldidagi tashrifi — {{ page.paginator.count }} ta.</p></div></div>
+<form class="toolbar" method="get">
+  <select name="device" data-autosubmit aria-label="Ko'zgu"><option value="">Barcha ko'zgular</option>{% for d in devices %}<option value="{{ d.slug }}" {% if f.device == d.slug %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select>
+  <div class="seg"><a href="{% qs_with ordered='' %}" class="{% if f.ordered != '1' %}on{% endif %}">Barchasi</a><a href="{% qs_with ordered='1' %}" class="{% if f.ordered == '1' %}on{% endif %}">Buyurtma berganlar</a></div>
+</form>
+<div class="card">
+  {% if page.object_list %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Boshlangan</th><th>Ko'zgu</th><th class="r">Davomiyligi</th><th class="r">Sinab ko'rildi</th><th class="r">Buyurtma</th><th>Holat</th></tr></thead>
+    <tbody>
+    {% for s in page %}
+    <tr>
+      <td class="tnum">{{ s.started_at|date:"d.m.Y H:i" }}</td>
+      <td>{{ s.device.name|default:"—" }}</td>
+      <td class="r tnum">{{ s.duration_seconds|duration }}</td>
+      <td class="r tnum">{{ s.tries }}</td>
+      <td class="r tnum">{% if s.orders_n %}<b>{{ s.orders_n }}</b>{% else %}0{% endif %}</td>
+      <td>{% if s.ended_at %}<span class="badge st-cancelled"><i></i>Tugagan</span>{% else %}<span class="badge st-on"><i></i>Davom etmoqda</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<div class="empty">{% icon "clock" 40 %}<b>Sessiya yo'q</b></div>{% endif %}
+</div>
+{% include "panel/_pager.html" %}
+{% endblock %}

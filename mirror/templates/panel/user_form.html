@@ -1,0 +1,27 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}{% if staff %}{{ staff.username }}{% else %}Yangi xodim{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <div class="crumbs"><a href="{% url 'panel:users' %}">{% icon "back" 14 %}Xodimlar</a></div>
+  <h1>{% if staff %}{{ staff.get_full_name|default:staff.username }}{% else %}Yangi xodim{% endif %}</h1>
+  {% if staff %}<p>Login: {{ staff.username }}</p>{% endif %}
+</div></div>
+<div class="card" style="max-width:760px">
+  <form method="post" autocomplete="off">{% csrf_token %}
+    <section class="form-section">
+      {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+      <div class="fields">
+        {% if form.username %}{% include "panel/_field.html" with field=form.username %}{% endif %}
+        {% if form.password %}{% include "panel/_field.html" with field=form.password %}{% endif %}
+        {% include "panel/_field.html" with field=form.first_name %}
+        {% include "panel/_field.html" with field=form.last_name %}
+        {% if form.new_password %}{% include "panel/_field.html" with field=form.new_password cls="wide" %}{% endif %}
+        {% if form.is_active %}{% include "panel/_field.html" with field=form.is_active cls="wide" %}{% endif %}
+        {% include "panel/_field.html" with field=form.is_superuser cls="wide" %}
+      </div>
+    </section>
+    <div class="form-foot"><div class="actions"><button class="btn primary" type="submit">{% icon "check" 16 %}Saqlash</button>
+      <a class="btn ghost" href="{% url 'panel:users' %}">Bekor qilish</a></div></div>
+  </form>
+</div>
+{% endblock %}

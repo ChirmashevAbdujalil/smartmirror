@@ -62,8 +62,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--reset", action="store_true", help="Mavjud kiyimlarni o'chirib, qaytadan yaratish")
+        parser.add_argument("--activity", action="store_true",
+                            help="Oxirgi 14 kunlik demo faollik (tashriflar, sinab ko'rishlar, buyurtmalar) — "
+                                 "boshqaruv paneli grafiklarini ko'rish uchun")
 
-    def handle(self, *args, reset=False, **opts):
+    def handle(self, *args, reset=False, activity=False, **opts):
         colors = {}
         for i, (name, hex_, neutral) in enumerate(COLORS):
             colors[name], _ = Color.objects.get_or_create(
@@ -78,7 +81,12 @@ class Command(BaseCommand):
             Product.objects.filter(orderitem__isnull=True).delete()
         if Product.objects.exists():
             self.stdout.write("Kiyimlar allaqachon bor (qaytadan yaratish uchun --reset).")
-            return
+        else:
+            self.create_products(colors)
+        if activity:
+            self.create_activity(device)
+
+    def create_products(self, colors):
 
         for i, (name, kind, style, color, price, sizes, is_new) in enumerate(PRODUCTS):
             p = Product(name=name, kind=kind, style=style, color=colors[color], price=price,
@@ -88,3 +96,44 @@ class Command(BaseCommand):
             p.save()
             ProductSize.objects.bulk_create([ProductSize(product=p, size=s, stock=n) for s, n in sizes.items()])
         self.stdout.write(self.style.SUCCESS(f"{len(PRODUCTS)} ta kiyim yaratildi."))
+
+    def create_activity(self, device, days=14, seed=7):
+        """Tasodifiy, lekin takrorlanuvchan demo faollik. Ombor o'zgarmaydi (faqat statistika uchun)."""
+        import random
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from mirror.models import MirrorSession, Order, OrderItem, OrderStatus, TryOn
+
+        rnd = random.Random(seed)
+        products = list(Product.objects.filter(is_active=True))
+        if not products:
+            return
+        weights = [rnd.uniform(0.3, 3) for _ in products]
+        now = timezone.now()
+        statuses = [OrderStatus.SOLD] * 6 + [OrderStatus.CANCELLED] * 2
+        n_sessions = n_orders = 0
+        for d in range(days, 0, -1):
+            day = now - timedelta(days=d - 1)
+            for _ in range(rnd.randint(4, 14) + (6 if day.weekday() >= 5 else 0)):
+                start = day.replace(hour=rnd.randint(10, 20), minute=rnd.randint(0, 59))
+                if start > now:
+                    start = now - timedelta(minutes=rnd.randint(5, 60))
+                tried = rnd.sample(products, k=min(len(products), rnd.randint(1, 5)))
+                dur = timedelta(seconds=rnd.randint(50, 260))
+                s = MirrorSession.objects.create(device=device, started_at=start, last_activity=start + dur,
+                                                 ended_at=start + dur)
+                n_sessions += 1
+                TryOn.objects.bulk_create([
+                    TryOn(session=s, product=p, created_at=start + timedelta(seconds=10 * i))
+                    for i, p in enumerate(rnd.choices(products, weights=weights, k=len(tried)))
+                ])
+                if rnd.random() < 0.32:
+                    o = Order.objects.create(number=f"{rnd.randint(1, 999):03d}", session=s, device=device,
+                                             status=rnd.choice(statuses), created_at=start + dur)
+                    for p in rnd.sample(tried, k=min(len(tried), rnd.randint(1, 2))):
+                        size = p.sizes.order_by("?").values_list("size", flat=True).first() or "M"
+                        OrderItem.objects.create(order=o, product=p, size=size, price=p.price)
+                    n_orders += 1
+        self.stdout.write(self.style.SUCCESS(f"Demo faollik: {n_sessions} ta tashrif, {n_orders} ta buyurtma."))

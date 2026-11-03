@@ -1,0 +1,12 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}O'chirish{% endblock %}
+{% block content %}
+<div class="card card-pad" style="max-width:560px">
+  <h1 style="font-size:20px;margin-bottom:8px">{{ title }}</h1>
+  <p class="muted">{{ text }}</p>
+  <form method="post" class="actions mt">{% csrf_token %}
+    <button class="btn danger" type="submit">{% icon "trash" 16 %}Ha, o'chirish</button>
+    <a class="btn" href="{{ back }}">Bekor qilish</a>
+  </form>
+</div>
+{% endblock %}

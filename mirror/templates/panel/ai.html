@@ -1,0 +1,50 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}AI sozlamalari{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Fotorealistik AI</h1><p>Ko'zgudagi "✨ AI foto" tugmasi xaridor suratini va tanlangan kiyimlarni shu xizmatga yuboradi.</p></div>
+  <div>{% if cfg.enabled %}<span class="badge st-on"><i></i>Yoqilgan</span>{% else %}<span class="badge st-off"><i></i>O'chiq</span>{% endif %}</div>
+</div>
+<div class="form-layout">
+  <div class="card">
+    <form method="post">{% csrf_token %}
+      <section class="form-section">
+        <h2>Xizmat</h2>
+        <p>FASHN yoki Replicate'dan API kalit oling, yoki o'z GPU serveringiz manzilini kiriting. Kalit serverda saqlanadi va ko'zguga yuborilmaydi.</p>
+        <div class="fields">
+          {% include "panel/_field.html" with field=form.provider %}
+          {% include "panel/_field.html" with field=form.timeout %}
+          {% include "panel/_field.html" with field=form.api_key cls="wide" %}
+          {% include "panel/_field.html" with field=form.model %}
+          {% include "panel/_field.html" with field=form.endpoint %}
+        </div>
+      </section>
+      <div class="form-foot"><button class="btn primary" type="submit">{% icon "check" 16 %}Saqlash</button></div>
+    </form>
+  </div>
+  <div class="card card-pad side-card">
+    <h2 style="font-size:15px;margin-bottom:10px">Eslatma</h2>
+    <p class="muted small">Ochiq kodli VTON modellarining ko'pi faqat notijorat litsenziyada — tijoriy foydalanishdan oldin tekshiring.</p>
+    <p class="muted small">Xaridor surati faqat u "✨ AI foto" tugmasini bosganda yuboriladi. Do'konda bu haqda ogohlantirish qo'yish tavsiya etiladi.</p>
+  </div>
+</div>
+
+<div class="page-head" style="margin-top:28px"><div><h1 style="font-size:20px">So'nggi AI suratlar</h1></div></div>
+{% if jobs %}
+<div class="gallery">
+  {% for j in jobs %}
+  <div class="card gcard">
+    <div class="pair">
+      {% if j.person_image %}<img src="{{ j.person_image.url }}" alt="Asl surat" loading="lazy">{% else %}<span></span>{% endif %}
+      {% if j.result_image %}<img src="{{ j.result_image.url }}" alt="AI natija" loading="lazy">{% else %}<div class="empty" style="padding:10px">{% icon "sparkles" 24 %}</div>{% endif %}
+    </div>
+    <div class="gbody">
+      <div style="display:flex;justify-content:space-between;align-items:center">{% status_badge j.status j.get_status_display %}<span class="muted tnum">{{ j.seconds }} s</span></div>
+      <span class="muted">{{ j.created_at|date:"d.m H:i" }} · {{ j.get_provider_display }}</span>
+      {% if j.error %}<span style="color:var(--bad)">{{ j.error }}</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="card empty">{% icon "sparkles" 40 %}<b>Hali AI surat yaratilmagan</b></div>{% endif %}
+{% endblock %}

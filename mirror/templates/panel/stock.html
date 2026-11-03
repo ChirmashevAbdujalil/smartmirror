@@ -1,0 +1,38 @@
+{% extends "panel/base.html" %}{% load panel_tags %}
+{% block title %}Ombor{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Ombor</h1><p>Barcha kiyimlarning o'lchamlar bo'yicha qoldig'i — bir joyda tahrirlang va bir marta saqlang.</p></div>
+</div>
+<form class="toolbar" method="get">
+  <label class="search">{% icon "search" 16 %}<input type="search" name="q" value="{{ f.q }}" placeholder="Kiyim nomi"></label>
+  <select name="kind" data-autosubmit aria-label="Turi"><option value="">Barcha turlar</option>{% for v, l in kinds %}<option value="{{ v }}" {% if f.kind == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+  <span class="muted small">Bo'sh katak — bu o'lcham sotilmaydi · <span class="badge st-low"><i></i>0</span> tugagan · <span class="badge st-preparing"><i></i>1</span> kam qolgan</span>
+</form>
+
+<form method="post" id="stock-form">{% csrf_token %}
+  <div class="card">
+    <div class="table-wrap">
+      <table class="table stock-table">
+        <thead><tr><th>Kiyim</th>{% for s in sizes %}<th class="c">{{ s }}</th>{% endfor %}<th class="r">Jami</th></tr></thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td><a class="row-link" href="{% url 'panel:product_edit' r.p.pk %}">{{ r.p.name }}</a>
+              <div class="muted small"><span class="swatch-dot" style="background:{{ r.p.color.hex }}"></span> {{ r.p.get_kind_display }}{% if not r.p.is_active %} · yashirilgan{% endif %}</div></td>
+            {% for size, value in r.cells %}
+            <td class="cell c"><input type="text" inputmode="numeric" pattern="[0-9]*" name="s-{{ r.p.pk }}-{{ size }}" value="{{ value|default_if_none:'' }}" aria-label="{{ r.p.name }} {{ size }}" placeholder="—"></td>
+            {% endfor %}
+            <td class="r tnum"><b>{{ r.total }}</b></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="{{ sizes|length|add:2 }}"><div class="empty">Kiyim topilmadi</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="sticky-save"><div class="card"><span class="muted" id="changed-count">O'zgarish yo'q</span>
+    <button class="btn primary" type="submit">{% icon "check" 16 %}Saqlash</button></div></div>
+</form>
+{% endblock %}

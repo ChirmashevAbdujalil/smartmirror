@@ -1,0 +1,7 @@
+{% load panel_tags %}{% if page.has_other_pages %}
+<nav class="pager" aria-label="Sahifalar">
+  {% if page.has_previous %}<a class="btn sm" href="?{% if qs %}{{ qs }}&{% endif %}page={{ page.previous_page_number }}">← Oldingi</a>{% endif %}
+  <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn sm" href="?{% if qs %}{{ qs }}&{% endif %}page={{ page.next_page_number }}">Keyingi →</a>{% endif %}
+</nav>
+{% endif %}

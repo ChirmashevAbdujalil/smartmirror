@@ -28,7 +28,22 @@ o'z panelida ko'radi va kiyimni kiyinish xonasiga olib keladi.
 - Katalog 30 soniyada avtomatik yangilanadi (admin o'zgartirsa, ko'zgu darhol ko'radi).
 - Harakatsizlikdan keyin sessiya tugaydi, savat va sevimlilar tozalanadi (maxfiylik).
 
-**Admin panel** (`/admin/`)
+**Boshqaruv paneli** (`/panel/`) — do'kon uchun maxsus dizayndagi dashboard (yorug' va qorong'i mavzu, mobilga mos)
+- **Bosh sahifa:** bugungi sotuv, buyurtmalar, sinab ko'rishlar va tashriflar (kechagiga nisbatan o'zgarish);
+  14 kunlik sotuv va sinab ko'rishlar grafiklari (tooltip va jadval ko'rinishi bilan); faol buyurtmalar;
+  eng ko'p sinab ko'rilgan kiyimlar; omborda tugayotganlar; ko'zgular onlayn holati; AI holati.
+- **Kiyimlar:** rasmli kartochkalar, qidiruv va filtrlar (tur, uslub, holat, saralash), bir bosishda yashirish/ko'rsatish;
+  qo'shish/tahrirlash formasi — fonni darhol olib tashlash, canvas joylash muharriri, o'lchamlar va ombor.
+- **Ombor:** barcha kiyim × o'lcham jadvali — bir joyda tahrirlab, bir marta saqlash (o'zgargan kataklar belgilanadi).
+- **Buyurtmalar:** jonli doska (Yangi → Tayyorlanmoqda → Kiyinish xonasida, ovozli signal) va qidiruvli tarix;
+  buyurtma sahifasida holat, mijoz va izoh.
+- **Statistika:** davr tanlash, konversiya, kiyim bo'yicha sinab ko'rish → buyurtma → sotuv.
+- **Obrazlar, sessiyalar, ko'zgular, ranglar** — ko'rish, qo'shish, tahrirlash, o'chirish.
+- **AI sozlamalari va xodimlar** (faqat administrator): xizmat kaliti, so'nggi AI suratlar; konsultant/administrator
+  qo'shish, parolni almashtirish, faolsizlantirish.
+- Huquqlar: panelga faqat xodimlar kiradi; konsultant kiyimlar, ombor va buyurtmalar bilan ishlaydi.
+
+**Django admin** (`/admin/`) — zaxira texnik interfeys, panel bilan bir xil ma'lumotlar
 - Kiyimlar: turi, uslubi, rangi, narxi, tavsifi, o'lchamlar bo'yicha ombor.
 - Rasm yuklanganda **fon avtomatik olib tashlanadi** (oq/bir xil fonli surat yetarli) va kiyim chegarasigacha qirqiladi.
 - **Tanaga joylash muharriri (canvas):** kiyim manekin ustida ko'rsatiladi. Uni sichqoncha yoki barmoq bilan surish,
@@ -38,15 +53,8 @@ o'z panelida ko'radi va kiyimni kiyinish xonasiga olib keladi.
   Ko'zguda kiyim xaridor tanasining aynan shu qismiga kiydiriladi.
 - Ko'zgu qurilmalari (bir nechta ko'zgu, har birining shahri va kutish vaqti), ranglar, buyurtmalar, sessiyalar, obrazlar.
 
-**Konsultant paneli** (`/staff/`)
-- Yangi buyurtmalar avtomatik paydo bo'ladi (ovozli signal bilan).
-- Holatlar: Yangi → Tayyorlanmoqda → Kiyinish xonasida → Sotildi / Bekor qilindi.
-- Buyurtma omborni zaxiralaydi, bekor qilinsa kiyim omborga qaytadi.
-
-**Statistika** (`/staff/stats/`)
-- Sessiyalar, sinab ko'rishlar, o'rtacha vaqt, buyurtmalar, konversiya, sotuv, tejalgan vaqt.
-- Har bir kiyim uchun **sinab ko'rish → buyurtma → sotuv** konversiyasi.
-- Omborda tugayotgan o'lchamlar.
+**Buyurtma va ombor qoidasi:** buyurtma berilganda kiyim ombordan zaxiralanadi, "Bekor qilindi" bo'lsa omborga
+qaytadi. Eski `/staff/` va `/staff/stats/` manzillari boshqaruv paneliga yo'naltiradi.
 
 ## O'rnatish
 
@@ -55,7 +63,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py seed_demo
+python manage.py seed_demo            # --activity: grafiklar uchun 14 kunlik demo faollik
 python manage.py createsuperuser
 python manage.py runserver
 ```
@@ -65,9 +73,8 @@ Brauzerda oching:
 | Sahifa | Manzil |
 |---|---|
 | Ko'zgu | http://localhost:8000/ |
-| Admin | http://localhost:8000/admin/ |
-| Konsultant paneli | http://localhost:8000/staff/ |
-| Statistika | http://localhost:8000/staff/stats/ |
+| Boshqaruv paneli | http://localhost:8000/panel/ |
+| Django admin | http://localhost:8000/admin/ |
 
 Testlar:
 
@@ -141,7 +148,12 @@ config/                     Django sozlamalari va URL'lar
 mirror/models.py            Kiyim, O'lcham/ombor, Rang, Ko'zgu, Sessiya, Sinab ko'rish, Obraz, Buyurtma
 mirror/admin.py             Admin panel (jonli oldindan ko'rish, ombor, buyurtma holatlari)
 mirror/api.py               Ko'zgu uchun JSON API
-mirror/views.py             Ko'zgu sahifasi, obraz sahifasi, konsultant paneli, statistika
+mirror/views.py             Ko'zgu sahifasi, obraz sahifasi, xodimlar uchun API
+mirror/panel.py             Boshqaruv paneli (/panel/) — barcha bo'limlar; panel_urls.py — manzillar
+mirror/forms.py             Formalar (panel va admin uchun umumiy)
+mirror/analytics.py         Statistika va dashboard hisob-kitoblari
+mirror/templates/panel/     Panel shablonlari; static/mirror/css/panel.css — dizayn tizimi
+mirror/static/mirror/js/    panel.js, panel-charts.js (grafiklar), panel-orders.js (jonli doska)
 mirror/imaging.py           Rasm fonini olib tashlash (Pillow)
 mirror/vton.py              Fotorealistik AI: FASHN / Replicate / o'z serverimiz, fon oqimida bajarish
 mirror/static/mirror/js/    app.js (ko'zgu), tryon.js (kamera + AI), garments.js, api.js, weather.js,

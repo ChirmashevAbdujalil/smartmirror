@@ -9,6 +9,7 @@ admin.site.index_title = "Do'kon boshqaruvi"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("panel/", include("mirror.panel_urls")),
     path("", include("mirror.urls")),
 ]
 
