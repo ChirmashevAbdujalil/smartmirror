@@ -28,3 +28,8 @@
 .smp-nums input { width: 100%; min-width: 0; box-sizing: border-box; padding: 5px 6px; }
 .smp-check { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
 .smp-note { font-size: 12px; line-height: 1.5; color: var(--body-quiet-color, #666); }
+.smp-photo-note { padding: 6px 10px; border-radius: 8px; background: rgba(0, 0, 0, .04); }
+.smp-photo-note.busy { color: #b07800; background: rgba(245, 192, 74, .15); }
+.smp-photo-note.ok { color: #1d6b40; background: rgba(47, 143, 91, .12); }
+.smp-photo-note.error { color: #c2334d; background: rgba(194, 51, 77, .1); }
+.smp-stage canvas.busy { opacity: .6; transition: opacity .2s; }

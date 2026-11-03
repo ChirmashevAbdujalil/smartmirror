@@ -379,3 +379,59 @@ class PlacementTests(BaseCase):
         # Shim rasmi 100x200: qutiga 100 kenglikda, y=148 dan.
         self.assertEqual(mig.legacy_box("shim", (100, 200), 1.0, 5, -4),
                          {"x": 55.0, "y": 144.0, "w": 100.0, "h": 200.0, "r": 0.0})
+
+
+# ---------------- Admin: rasmni oldindan qayta ishlash ----------------
+
+class TryonPreviewTests(BaseCase):
+    def setUp(self):
+        super().setUp()
+        self.admin = get_user_model().objects.create_superuser("admin", "a@a.uz", "pass12345")
+        self.url = reverse("mirror:tryon_preview")
+
+    def test_requires_staff(self):
+        r = self.client.post(self.url, {"photo": SimpleUploadedFile("k.png", jpeg_on_white())})
+        self.assertEqual(r.status_code, 302)
+
+    def test_preview_matches_saved_result(self):
+        self.client.force_login(self.admin)
+        raw = jpeg_on_white()
+        r = self.client.post(self.url, {"photo": SimpleUploadedFile("k.png", raw), "remove_background": "1"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "image/png")
+        preview = Image.open(io.BytesIO(r.content))
+        self.assertEqual(preview.mode, "RGBA")
+        # Fon olib tashlanib, kiyim chegarasigacha qirqilgan (300x300 dan kichik, burchak deyarli shaffof).
+        self.assertLess(preview.width, 300)
+        self.assertLess(preview.getpixel((0, 0))[3], 64)
+
+        # Saqlangandagi natija aynan shu bo'lishi kerak (muharrirdagi joy mos kelsin).
+        self.p.photo = SimpleUploadedFile("k.png", raw)
+        self.p.save()
+        self.p.refresh_from_db()
+        saved = Image.open(self.p.tryon_image.path)
+        self.assertEqual(saved.size, preview.size)
+        self.assertEqual(saved.tobytes(), preview.tobytes())
+        self.assertEqual(Product.objects.count(), 1)  # oldindan ko'rish hech narsa saqlamaydi
+
+    def test_without_background_removal(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"photo": SimpleUploadedFile("k.png", jpeg_on_white()), "remove_background": "0"})
+        im = Image.open(io.BytesIO(r.content))
+        self.assertEqual(im.getpixel((0, 0))[3], 255)  # fon qoldi
+        self.assertEqual(im.size, (300, 300))
+
+    def test_existing_product_photo(self):
+        self.client.force_login(self.admin)
+        self.p.photo = SimpleUploadedFile("k.png", jpeg_on_white())
+        self.p.save()
+        r = self.client.post(self.url, {"product": self.p.pk, "remove_background": "0"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(Image.open(io.BytesIO(r.content)).size, (300, 300))
+
+    def test_bad_input(self):
+        self.client.force_login(self.admin)
+        r = self.client.post(self.url, {"photo": SimpleUploadedFile("x.png", b"not an image")})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("o'qilmadi", r.json()["error"])
+        self.assertEqual(self.client.post(self.url, {"product": self.p.pk}).status_code, 400)  # rasmi yo'q

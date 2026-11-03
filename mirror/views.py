@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, F, Q, Sum
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -158,3 +158,39 @@ def stats(request):
         "low_stock": low_stock,
         "by_status": [(label, by_status.get(value, 0)) for value, label in OrderStatus.choices],
     })
+
+
+# ---------------- Admin: kiyim rasmini oldindan qayta ishlash ----------------
+
+PREVIEW_MAX_BYTES = 15 * 1024 * 1024
+
+
+@staff_member_required
+@require_POST
+def tryon_preview(request):
+    """Admin yangi rasm tanlaganda (yoki "fonni olib tashlash" belgisini o'zgartirganda) muharrir
+    saqlashdan oldin aynan saqlangandagi natijani ko'rsatishi uchun: rasm saqlashdagi bilan bir xil
+    `make_tryon_image` orqali o'tkaziladi va fonsiz, qirqilgan PNG qaytariladi. Hech narsa saqlanmaydi."""
+    from .imaging import make_tryon_image
+
+    remove_bg = request.POST.get("remove_background", "1") not in ("0", "false", "")
+    upload = request.FILES.get("photo")
+    try:
+        if upload:
+            if upload.size > PREVIEW_MAX_BYTES:
+                return JsonResponse({"error": "Rasm juda katta (15 MB dan oshmasin)"}, status=400)
+            content = make_tryon_image(upload, remove_bg=remove_bg)
+        else:
+            product = Product.objects.filter(pk=request.POST.get("product")).first()
+            if not product or not product.photo:
+                return JsonResponse({"error": "Rasm topilmadi"}, status=400)
+            product.photo.open("rb")
+            try:
+                content = make_tryon_image(product.photo, remove_bg=remove_bg)
+            finally:
+                product.photo.close()
+    except Exception:
+        return JsonResponse({"error": "Rasm o'qilmadi — PNG, JPG yoki WEBP yuklang"}, status=400)
+    response = HttpResponse(content.read(), content_type="image/png")
+    response["Cache-Control"] = "no-store"
+    return response

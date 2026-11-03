@@ -66,9 +66,7 @@ function init(root) {
           kvadratchalar bilan kattalashtiring, tepadagi doiracha bilan buring.
           Klaviatura: ← ↑ → ↓ — surish (Shift bilan 5 birlik), + / − — kattalashtirish, [ ] — burish.
         </div>
-        <div class="smp-note smp-photo-note" hidden>
-          Yangi rasm tanlandi. Fon saqlangandan keyin olib tashlanadi — saqlab, joyini yana bir bor tekshiring.
-        </div>
+        <div class="smp-note smp-photo-note" hidden></div>
       </div>
     </div>`;
 
@@ -378,30 +376,99 @@ function init(root) {
   });
 
   // ---------------- Kiyim tasviri ----------------
-  async function reloadImage() {
+  // fitAspect: yangi rasm kelganda qo'lda belgilangan joy rasm proporsiyasiga moslashsin
+  // (kenglik va yuqori qirra saqlanadi, balandlik yangi rasmga qarab o'zgaradi).
+  async function reloadImage(fitAspect = false) {
     try {
       const layer = await loadGarment({
         kind: kind(),
         color: { hex: colors[colorSel?.value] || root.dataset.color },
-        image: localImage || root.dataset.image || null,
+        image: hasUpload ? localImage || root.dataset.image || null : null,
         placement: null,
       });
       img = layer.img;
+      if (fitAspect && placement && hasUpload) {
+        const ar = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+        commit({ ...placement, h: placement.w / ar });
+        return;
+      }
     } catch {
       img = null;
     }
     render();
   }
 
-  kindSel?.addEventListener("change", reloadImage);
-  colorSel?.addEventListener("change", reloadImage);
-  photoInput?.addEventListener("change", (e) => {
-    const f = e.target.files?.[0];
-    localImage = f ? URL.createObjectURL(f) : null;
-    hasUpload = Boolean(localImage || root.dataset.image);
-    root.querySelector(".smp-photo-note").hidden = !localImage;
-    reloadImage();
+  // Yangi rasm (yoki "fonni olib tashlash" o'zgarishi) — serverda saqlashdagi bilan bir xil
+  // qayta ishlanadi va muharrir aynan saqlangandan keyingi fonsiz natijani ko'rsatadi.
+  const note = root.querySelector(".smp-photo-note");
+  const removeBgBox = $("remove_background");
+  const clearBox = $("photo-clear");
+  const csrf = document.querySelector("[name=csrfmiddlewaretoken]")?.value || "";
+  let previewSeq = 0;
+
+  function setNote(text, kindClass = "") {
+    note.hidden = !text;
+    note.textContent = text || "";
+    note.className = `smp-note smp-photo-note ${kindClass}`;
+  }
+
+  function setLocal(url) {
+    if (localImage && localImage.startsWith("blob:")) URL.revokeObjectURL(localImage);
+    localImage = url;
+  }
+
+  async function processPhoto() {
+    const file = photoInput?.files?.[0] || null;
+    const existing = Boolean(root.dataset.image) && !clearBox?.checked;
+    const seq = ++previewSeq;
+    if (!file && !existing) {
+      // Rasm olib tashlandi — avtomatik tasvir.
+      setLocal(null);
+      hasUpload = false;
+      setNote(clearBox?.checked ? "Rasm o'chiriladi — ko'zguda avtomatik tasvir ishlatiladi." : "");
+      await reloadImage();
+      return;
+    }
+    hasUpload = true;
+    const body = new FormData();
+    body.append("remove_background", removeBgBox && !removeBgBox.checked ? "0" : "1");
+    if (file) body.append("photo", file);
+    else body.append("product", root.dataset.product || "");
+    setNote("Fon olib tashlanmoqda…", "busy");
+    canvas.classList.add("busy");
+    try {
+      const res = await fetch(root.dataset.previewUrl, {
+        method: "POST", body, headers: { "X-CSRFToken": csrf }, credentials: "same-origin",
+      });
+      if (seq !== previewSeq) return;  // eskirgan javob
+      if (!res.ok) {
+        let msg = "Rasm qayta ishlanmadi";
+        try { msg = (await res.json()).error || msg; } catch { /* rasm emas */ }
+        throw new Error(msg);
+      }
+      setLocal(URL.createObjectURL(await res.blob()));
+      setNote(file
+        ? "Tayyor: fon olib tashlandi. Saqlangandan keyin ko'zguda aynan shunday ko'rinadi."
+        : "Tayyor: yangilangan ko'rinish. Saqlashni unutmang.", "ok");
+      await reloadImage(true);
+    } catch (err) {
+      if (seq !== previewSeq) return;
+      // Server ishlamasa — hech bo'lmasa xom rasmni ko'rsatamiz.
+      setLocal(file ? URL.createObjectURL(file) : null);
+      setNote(`${err.message || "Xato"}. Hozircha fonsiz holati ko'rsatilmayapti.`, "error");
+      await reloadImage(Boolean(file));
+    } finally {
+      if (seq === previewSeq) canvas.classList.remove("busy");
+    }
+  }
+
+  kindSel?.addEventListener("change", () => reloadImage());
+  colorSel?.addEventListener("change", () => reloadImage());
+  photoInput?.addEventListener("change", processPhoto);
+  removeBgBox?.addEventListener("change", () => {
+    if (photoInput?.files?.[0] || root.dataset.image) processPhoto();
   });
+  clearBox?.addEventListener("change", processPhoto);
 
   if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
   else window.addEventListener("resize", resize);

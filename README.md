@@ -178,7 +178,9 @@ mirror/management/commands/seed_demo.py   Demo ma'lumotlar
 
 - Kiyimni old tomondan, tekis yoyib, **oq yoki bir xil rangli fonda** suratga oling.
 - Yoki fonsiz (shaffof) PNG yuklang.
-- Saqlagach, "Tanadagi joyi" muharririda tekshiring: kiyimni tegishli tana qismiga surib, kattalashtirib qo'ying.
+- Rasm tanlanishi bilan muharrir uni serverda **saqlashdagi bilan bir xil** qayta ishlaydi (fon olib tashlanadi,
+  qirqiladi) va darhol fonsiz holda ko'rsatadi — saqlashdan oldin ko'rganingiz ko'zguda aynan shunday chiqadi.
+  "Fonni avtomatik olib tashlash" belgisini o'zgartirsangiz ham ko'rinish darhol yangilanadi.
 
 ## Keyingi bosqichlar
 

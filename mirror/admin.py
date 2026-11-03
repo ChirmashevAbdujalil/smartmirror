@@ -6,6 +6,7 @@ from django.utils.html import format_html, format_html_join
 
 from django import forms
 from django.shortcuts import redirect
+from django.urls import reverse
 
 from .models import (
     PLACEMENT_LIMITS, normalize_placement, SIZE_ORDER, AISettings, PhotorealJob, Color, Look, MirrorDevice, MirrorSession, Order, OrderItem, OrderStatus,
@@ -116,7 +117,8 @@ class ProductAdmin(admin.ModelAdmin):
     def placement_editor(self, obj):
         has_obj = bool(obj and obj.pk)
         return format_html(
-            '<div class="sm-place" data-image="{}" data-kind="{}" data-color="{}" data-limits="{}">'
+            '<div class="sm-place" data-image="{}" data-kind="{}" data-color="{}" data-limits="{}" '
+            'data-preview-url="{}" data-product="{}">'
             '<noscript>Muharrir uchun JavaScript kerak.</noscript></div>'
             '<link rel="stylesheet" href="{}">'
             '<script type="module" src="{}"></script>',
@@ -124,6 +126,8 @@ class ProductAdmin(admin.ModelAdmin):
             obj.kind if has_obj else "bluzka",
             obj.color.hex if has_obj else "#e8a3b5",
             json.dumps(PLACEMENT_LIMITS),
+            reverse("mirror:tryon_preview"),
+            obj.pk if has_obj else "",
             static("mirror/css/admin-place.css"),
             static("mirror/js/admin-place.js"),
         )
